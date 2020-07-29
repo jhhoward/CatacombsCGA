@@ -61,7 +61,7 @@ void Platform::DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t f
 
 }
 
-void DrawString(unsigned char far* vram, const char* string, int x, int y, unsigned char colourAttribute)
+void Platform::DrawString(unsigned char far* vram, const char* string, int x, int y, unsigned char colourAttribute)
 {
 	vram += y * 160 + x * 2;
 	while (*string)
@@ -150,7 +150,7 @@ int main()
 			static char fpsMessage[20];
 			unsigned char far* backBuffer = (unsigned char far*) MK_FP(0xB800, 0);
 			sprintf(fpsMessage, "FPS: %d    ", fps);
-			DrawString(backBuffer, fpsMessage, 0, 24, 0x0f);
+			Platform::DrawString(backBuffer, fpsMessage, 0, 24, 0x0f);
 		}
 
 		if (DOSLib::normalKeys[1])	// Escape

@@ -189,6 +189,8 @@ bool Map::IsClearLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2)
 
 void Map::GenerateRoomStructure()
 {
+	Platform::Log("Generating render structures..");
+
 	const uint8_t verticalColour = 3;
 	const uint8_t horizontalColour = 11;
 	for (int n = 0; n < MAX_ROOMS; n++)
@@ -221,21 +223,22 @@ void Map::GenerateRoomStructure()
 					room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, horizontalColour);
 				}
 
+				uint8_t portalColour = 0;// (room.numWalls & 0xf);
 				if (x > 0 && GetCell(x - 1, y) != CT_BrickWall && GetRoomIndex(x - 1, y) != index)
 				{
-					room.AddWall(x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE, 0, GetRoomIndex(x - 1, y));
+					room.AddWall(x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE, portalColour, GetRoomIndex(x - 1, y));
 				}
 				if (y > 0 && GetCell(x, y - 1) != CT_BrickWall && GetRoomIndex(x, y - 1) != index)
 				{
-					room.AddWall(x * CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, 0, GetRoomIndex(x, y - 1));
+					room.AddWall(x * CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, portalColour, GetRoomIndex(x, y - 1));
 				}
 				if (x < MAP_WIDTH - 1 && GetCell(x + 1, y) != CT_BrickWall && GetRoomIndex(x + 1, y) != index)
 				{
-					room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, 0, GetRoomIndex(x + 1, y));
+					room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, portalColour, GetRoomIndex(x + 1, y));
 				}
 				if (y < MAP_HEIGHT - 1 && GetCell(x, y + 1) != CT_BrickWall && GetRoomIndex(x, y + 1) != index)
 				{
-					room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, 0, GetRoomIndex(x, y + 1));
+					room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, portalColour, GetRoomIndex(x, y + 1));
 				}
 			}
 		}
@@ -295,6 +298,7 @@ void Room::AddWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t colou
 				{
 					vertices[vertA].x = x2;
 					vertices[vertA].y = y2;
+					walls[n].length++;
 					return;
 				}
 				break;
@@ -305,6 +309,7 @@ void Room::AddWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t colou
 				{
 					vertices[vertB].x = x1;
 					vertices[vertB].y = y1;
+					walls[n].length++;
 					return;
 				}
 				break;

@@ -1,6 +1,8 @@
 #pragma once
 #include "Defines.h"
 
+#define PERSPECTIVE_LOOKUP_TABLE_SIZE 8192
+
 struct Camera
 {
 	int16_t x, y;
@@ -17,13 +19,6 @@ enum DrawableType
 {
 	DT_Sprite = 0,
 	DT_ParticleSystem = 1
-};
-
-enum EdgeType
-{
-	Edge_None,
-	Edge_Brick,
-	Edge_Line
 };
 
 struct QueuedDrawable
@@ -46,12 +41,14 @@ struct RoomDrawContext
 {
 	uint8_t roomIndex;
 	uint8_t clipLeft, clipRight;
+	uint8_t depth;
 
-	void Set(uint8_t inRoomIndex, uint8_t inClipLeft, uint8_t inClipRight)
+	void Set(uint8_t inRoomIndex, uint8_t inClipLeft, uint8_t inClipRight, uint8_t inDepth)
 	{
 		roomIndex = inRoomIndex;
 		clipLeft = inClipLeft;
 		clipRight = inClipRight;
+		depth = inDepth;
 	}
 };
 
@@ -66,7 +63,7 @@ public:
 	static uint8_t wallColourLower[DISPLAY_WIDTH];
 	static uint8_t globalRenderFrame;
 
-	static void Render();
+	static void Render(class Player& player);
 
 	static void DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint8_t scale = 128, bool invert = false);
 	static QueuedDrawable* CreateQueuedDrawable(uint8_t inverseCameraDistance);
@@ -80,10 +77,11 @@ private:
 	static uint8_t numQueuedDrawables;
 	static uint8_t numBufferSlicesFilled;
 	static bool visibleRooms[MAX_ROOMS];
+	static uint8_t wallId[DISPLAY_WIDTH];
+	static uint8_t currentWallId;
 
-	static void DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1, int16_t x2, int16_t w2, int16_t xMid, uint8_t colour, uint8_t edgeLeft, uint8_t edgeRight);
-	static void DrawWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t colour, uint8_t edgeLeft, uint8_t edgeRight);
-	static void DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t colour, uint8_t edgeLeft, uint8_t edgeRight);
+	static void DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1, int16_t x2, int16_t w2, uint8_t colour);
+	static void DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t colour, uint8_t length);
 
 	static bool IsPortalVisible(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t& clipLeft, uint8_t& clipRight);
 
@@ -92,7 +90,6 @@ private:
 	static void TransformToViewSpace(int16_t x, int16_t y, int16_t& outX, int16_t& outY);
 	static void TransformToScreenSpace(int16_t viewX, int16_t viewZ, int16_t& outX, int16_t& outW);
 	
-	static void DrawRoom(Room& room);
 	static void DrawGeometry();
 
 	static void DrawCell(uint8_t x, uint8_t y);

@@ -1,5 +1,9 @@
 #include <stdint.h>
+#include <stdio.h>
 #include <memory.h>
+#include <dos.h>
+#include <i86.h>
+#include <malloc.h>
 #include "Draw.h"
 #include "Defines.h"
 #include "Game.h"
@@ -10,12 +14,15 @@
 #include "Platform.h"
 #include "Enemy.h"
 //#include "Font.h"
+#include "DOSLib.h"
 
 #include "LUT.h"
+#include "Generated/WallScaler.cpp"
 //#include "Generated/SpriteData.inc.h"
 
 Camera Renderer::camera;
 uint8_t Renderer::wBuffer[DISPLAY_WIDTH];
+uint8_t Renderer::wallId[DISPLAY_WIDTH];
 uint8_t Renderer::wallColourUpper[DISPLAY_WIDTH];
 uint8_t Renderer::wallColourLower[DISPLAY_WIDTH];
 int8_t Renderer::horizonBuffer[DISPLAY_WIDTH];
@@ -23,6 +30,7 @@ uint8_t Renderer::globalRenderFrame = 0;
 uint8_t Renderer::numBufferSlicesFilled = 0;
 QueuedDrawable Renderer::queuedDrawables[MAX_QUEUED_DRAWABLES];
 uint8_t Renderer::numQueuedDrawables = 0;
+uint8_t Renderer::currentWallId = 0;
 bool Renderer::visibleRooms[MAX_ROOMS];
 
 static int wallDrawCounter = 0;
@@ -30,7 +38,7 @@ static int wallSegmentDrawCounter = 0;
 static int cellDrawCounter = 0;
 static int visibleSegmentCounter = 0;
 
-void Renderer::DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1, int16_t x2, int16_t w2, int16_t xMid, uint8_t colour, uint8_t edgeLeft, uint8_t edgeRight)
+void Renderer::DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1, int16_t x2, int16_t w2, uint8_t colour)
 {
 	wallSegmentDrawCounter++;
 
@@ -44,7 +52,6 @@ void Renderer::DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1,
 
 	if (x1 < context.clipLeft)
 	{
-		edgeLeft = Edge_None;
 		w1 += ((int32_t)(context.clipLeft - x1) * (int32_t)(w2 - w1)) / (x2 - x1);
 		x1 = context.clipLeft;
 	}
@@ -89,31 +96,9 @@ void Renderer::DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1,
 			else
 				wBuffer[x] = outW;
 
-			if (x == x1 && edgeLeft == Edge_Brick)
-			{
-				wallColourUpper[x] = 0;
-				wallColourLower[x] = colour;
-			}
-			else if (x == x1 && edgeLeft == Edge_Line)
-			{
-				wallColourUpper[x] = 0;
-				wallColourLower[x] = 0;
-			}
-			else if (x == x2 && edgeRight == Edge_Line)
-			{
-				wallColourUpper[x] = 0;
-				wallColourLower[x] = 0;
-			}
-			else if (x == xMid)
-			{
-				wallColourUpper[x] = colour;
-				wallColourLower[x] = 0;
-			}
-			else
-			{
-				wallColourUpper[x] = colour;
-				wallColourLower[x] = colour;
-			}
+			wallId[x] = currentWallId;
+			wallColourUpper[x] = colour;
+			wallColourLower[x] = colour;
 		}
 
 		if (x == x2)
@@ -141,10 +126,20 @@ bool Renderer::isFrustrumClipped(int16_t x, int16_t y)
 
 void Renderer::TransformToViewSpace(int16_t x, int16_t y, int16_t& outX, int16_t& outY)
 {
-	int32_t relX = x - camera.x;
-	int32_t relY = y - camera.y;
-	outY = (int16_t)((camera.rotCos * relX) >> 8) - (int16_t)((camera.rotSin * relY) >> 8);
-	outX = (int16_t)((camera.rotSin * relX) >> 8) + (int16_t)((camera.rotCos * relY) >> 8);
+	//if (DOSLib::normalKeys[0x1c])
+	{
+		int32_t relX = x - camera.x;
+		int32_t relY = y - camera.y;
+		outY = (int16_t)((camera.rotCos * relX) >> 8) - (int16_t)((camera.rotSin * relY) >> 8);
+		outX = (int16_t)((camera.rotSin * relX) >> 8) + (int16_t)((camera.rotCos * relY) >> 8);
+	}
+	/*else
+	{
+		int16_t relX = x - camera.x;
+		int16_t relY = y - camera.y;
+		outY = (int16_t)(((camera.rotCos) * (relX >> 5)) >> 3) - (int16_t)(((camera.rotSin) * (relY >> 5)) >> 3);
+		outX = (int16_t)(((camera.rotSin) * (relX >> 5)) >> 3) + (int16_t)(((camera.rotCos) * (relY >> 5)) >> 3);
+	}*/
 }
 
 void Renderer::TransformToScreenSpace(int16_t viewX, int16_t viewZ, int16_t& outX, int16_t& outW)
@@ -155,78 +150,6 @@ void Renderer::TransformToScreenSpace(int16_t viewX, int16_t viewZ, int16_t& out
 
 	// transform into screen space
 	outX = (int16_t)((DISPLAY_WIDTH / 2) + outX);
-}
-
-void Renderer::DrawWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t colour, uint8_t edgeLeft, uint8_t edgeRight)
-{
-	wallDrawCounter++;
-
-	int16_t viewX1, viewZ1, viewX2, viewZ2;
-	int16_t viewXMid, viewZMid;
-	int16_t vx1, vx2;
-	int16_t vxMid;
-	int16_t sx1, sx2, sxMid;
-	int16_t w1, w2;
-
-	TransformToViewSpace(x1, y1, viewX1, viewZ1);
-	TransformToViewSpace(x2, y2, viewX2, viewZ2);
-
-	// Frustum cull
-	//if (viewX2 < 0 && -2 * viewZ2 > viewX2)
-	//	return;
-	//if (viewX1 > 0 && 2 * viewZ1 < viewX1)
-	//	return;
-
-	// clip to the front pane
-	if ((viewZ1 < CLIP_PLANE) && (viewZ2 < CLIP_PLANE))
-		return;
-
-	viewXMid = (viewX1 + viewX2) >> 1;
-	viewZMid = (viewZ1 + viewZ2) >> 1;
-
-	if (viewZ1 < CLIP_PLANE)
-	{
-		edgeLeft = Edge_None;
-		//viewX1 += (CLIP_PLANE - viewZ1) * (viewX2 - viewX1) / (viewZ2 - viewZ1);
-		viewX1 += (int32_t)(CLIP_PLANE - viewZ1) * (int32_t)(viewX2 - viewX1) / (int32_t)(viewZ2 - viewZ1);
-		viewZ1 = CLIP_PLANE;
-	}
-	else if (viewZ2 < CLIP_PLANE)
-	{
-		edgeRight = Edge_None;
-		//viewX2 += (CLIP_PLANE - viewZ2) * (viewX1 - viewX2) / (viewZ1 - viewZ2);
-		viewX2 += (int32_t)(CLIP_PLANE - viewZ2) * (int32_t)(viewX1 - viewX2) / (int32_t)(viewZ1 - viewZ2);
-		viewZ2 = CLIP_PLANE;
-	}
-
-	// apply perspective projection
-	vx1 = (int16_t)((int32_t)viewX1 * NEAR_PLANE * CAMERA_SCALE / viewZ1);
-	vx2 = (int16_t)((int32_t)viewX2 * NEAR_PLANE * CAMERA_SCALE / viewZ2);
-
-	// transform the end points into screen space
-	sx1 = (int16_t)((DISPLAY_WIDTH / 2) + vx1);
-	sx2 = (int16_t)((DISPLAY_WIDTH / 2) + vx2) - 1;
-
-	if (sx1 >= sx2 || sx2 <= 0 || sx1 >= DISPLAY_WIDTH)
-		return;
-
-	if (viewZMid < CLIP_PLANE)
-	{
-		sxMid = -1;
-	}
-	else
-	{
-		vxMid = (int16_t)((int32_t)viewXMid * NEAR_PLANE * CAMERA_SCALE / viewZMid);
-		sxMid = (int16_t)((DISPLAY_WIDTH / 2) + vxMid);
-	}
-
-	w1 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ1);
-	w2 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ2);
-
-	RoomDrawContext context;
-	context.Set(0, 0, DISPLAY_WIDTH);
-
-	DrawWallSegment(context, sx1, w1, sx2, w2, sxMid, colour, edgeLeft, edgeRight);
 }
 
 void Renderer::DrawCell(uint8_t x, uint8_t y)
@@ -321,6 +244,7 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 	bool blockedUp = Map::IsSolid(x, y - 1);
 	bool blockedDown = Map::IsSolid(x, y + 1);
 
+#if 0
 	if (!blockedLeft && camera.x < x1)
 	{
 		DrawWall(x1, y1, x1, y2, 3, !blockedUp && camera.y > y1 ? Edge_Line : Edge_Brick, !blockedDown && camera.y < y2 ? Edge_Line : Edge_None);
@@ -340,6 +264,7 @@ void Renderer::DrawCell(uint8_t x, uint8_t y)
 	{
 		DrawWall(x2, y1, x1, y1, 11, !blockedRight && camera.x < x2 ? Edge_Line : Edge_Brick, !blockedLeft && camera.x > x1 ? Edge_Line : Edge_None);
 	}
+#endif
 }
 
 #define MAP_BUFFER_WIDTH 12  // 16
@@ -675,43 +600,34 @@ void Renderer::DrawHUD()
 #endif
 }
 
-void Renderer::DrawRoom(Room& room)
-{
-	for (int n = 0; n < room.numWalls; n++)
-	{
-		WallSegment& wall = room.walls[n];
-		DrawWall(room.vertices[wall.vertexA].x, room.vertices[wall.vertexA].y,
-			room.vertices[wall.vertexB].x, room.vertices[wall.vertexB].y, wall.colour, Edge_Brick, Edge_None);
-	}
-}
-
-
-void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t colour, uint8_t edgeLeft, uint8_t edgeRight)
+void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t colour, uint8_t length)
 {
 	wallDrawCounter++;
 
-	int16_t viewXMid, viewZMid;
 	int16_t vx1, vx2;
 	int16_t vxMid;
-	int16_t sx1, sx2, sxMid;
+	int16_t sx1, sx2;
 	int16_t w1, w2;
+	bool leftEdgeVisible = true;
+
+	uint8_t steps = length * 2;
+	int16_t detailX = viewX1;
+	int16_t detailZ = viewZ1;
+	int16_t detailDeltaX = (viewX2 - viewX1);
+	int16_t detailDeltaZ = (viewZ2 - viewZ1);
 
 	// clip to the front pane
 	if ((viewZ1 < CLIP_PLANE) && (viewZ2 < CLIP_PLANE))
 		return;
 
-	viewXMid = (viewX1 + viewX2) >> 1;
-	viewZMid = (viewZ1 + viewZ2) >> 1;
-
 	if (viewZ1 < CLIP_PLANE)
 	{
-		edgeLeft = Edge_None;
+		leftEdgeVisible = false;
 		viewX1 += (int32_t)(CLIP_PLANE - viewZ1) * (int32_t)(viewX2 - viewX1) / (int32_t)(viewZ2 - viewZ1);
 		viewZ1 = CLIP_PLANE;
 	}
 	else if (viewZ2 < CLIP_PLANE)
 	{
-		edgeRight = Edge_None;
 		viewX2 += (int32_t)(CLIP_PLANE - viewZ2) * (int32_t)(viewX1 - viewX2) / (int32_t)(viewZ1 - viewZ2);
 		viewZ2 = CLIP_PLANE;
 	}
@@ -727,20 +643,56 @@ void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t view
 	if (sx1 >= sx2 || sx2 <= context.clipLeft || sx1 >= context.clipRight)
 		return;
 
-	if (viewZMid < CLIP_PLANE)
-	{
-		sxMid = -1;
-	}
-	else
-	{
-		vxMid = (int16_t)((int32_t)viewXMid * NEAR_PLANE * CAMERA_SCALE / viewZMid);
-		sxMid = (int16_t)((DISPLAY_WIDTH / 2) + vxMid);
-	}
-
 	w1 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ1);
 	w2 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ2);
 
-	DrawWallSegment(context, sx1, w1, sx2, w2, sxMid, colour, edgeLeft, edgeRight);
+	currentWallId++;
+	DrawWallSegment(context, sx1, w1, sx2, w2, colour);
+
+	bool lowDetail = (Platform::GetInput() & INPUT_A) != 0;
+
+	if (lowDetail)
+		return;
+
+	if (leftEdgeVisible && sx1 >= context.clipLeft && wallId[sx1] == currentWallId)
+	{
+		wallColourUpper[sx1] = 0;
+	}
+
+	detailDeltaX /= steps;
+	detailDeltaZ /= steps;
+
+	for (int n = 1; n < steps; n++)
+	{
+		detailX += detailDeltaX;
+		detailZ += detailDeltaZ;
+
+		if (detailZ > CLIP_PLANE)
+		{
+			// apply perspective projection
+			int16_t dvx;
+
+			dvx = (int16_t)((int32_t)detailX * NEAR_PLANE * CAMERA_SCALE / detailZ);
+
+			// transform the end points into screen space
+			int16_t dsx = (int16_t)((DISPLAY_WIDTH / 2) + dvx);
+
+			if (dsx > context.clipRight)
+				break;
+
+			if (dsx >= context.clipLeft && wallId[dsx] == currentWallId)
+			{
+				if (n & 1)
+				{
+					wallColourLower[dsx] = 0;
+				}
+				else
+				{
+					wallColourUpper[dsx] = 0;
+				}
+			}
+		}
+	}
 }
 
 #define PORTAL_CLIP_PLANE CLIP_PLANE
@@ -763,8 +715,8 @@ bool Renderer::IsPortalVisible(RoomDrawContext& context, int16_t viewX1, int16_t
 	}
 	else
 	{
-		// apply perspective projection
 		vx1 = (int16_t)((int32_t)viewX1 * NEAR_PLANE * CAMERA_SCALE / viewZ1);
+
 		// transform the end points into screen space
 		sx1 = (int16_t)((DISPLAY_WIDTH / 2) + vx1) - 1;
 	}
@@ -775,8 +727,8 @@ bool Renderer::IsPortalVisible(RoomDrawContext& context, int16_t viewX1, int16_t
 	}
 	else
 	{
-		// apply perspective projection
 		vx2 = (int16_t)((int32_t)viewX2 * NEAR_PLANE * CAMERA_SCALE / viewZ2);
+
 		// transform the end points into screen space
 		sx2 = (int16_t)((DISPLAY_WIDTH / 2) + vx2) + 1;
 	}
@@ -906,10 +858,11 @@ void Renderer::DrawGeometry()
 	RoomDrawContext roomsToDraw[MAX_ROOMS];
 	int numRoomsToDraw = 1;
 	uint8_t cameraRoomIndex = Map::GetRoomIndex(camera.cellX, camera.cellY);
+	const uint8_t maxPortalDepth = 2;
 
 	memset(visibleRooms, 0, sizeof(bool) * MAX_ROOMS);
 
-	roomsToDraw[0].Set(cameraRoomIndex, 0, DISPLAY_WIDTH);
+	roomsToDraw[0].Set(cameraRoomIndex, 0, DISPLAY_WIDTH, 0);
 	visibleRooms[cameraRoomIndex] = true;
 
 	for(int r = 0; r < numRoomsToDraw; r++)
@@ -919,15 +872,22 @@ void Renderer::DrawGeometry()
 
 		for (int n = 0; n < room.numVertices; n++)
 		{
-			TransformToViewSpace(room.vertices[n].x, room.vertices[n].y, viewSpaceVertices[n].x, viewSpaceVertices[n].y);
+			//TransformToViewSpace(room.vertices[n].x, room.vertices[n].y, viewSpaceVertices[n].x, viewSpaceVertices[n].y);
+			int32_t relX = room.vertices[n].x - camera.x;
+			int32_t relY = room.vertices[n].y - camera.y;
+			viewSpaceVertices[n].y = (int16_t)((camera.rotCos * relX) >> 8) - (int16_t)((camera.rotSin * relY) >> 8);
+			viewSpaceVertices[n].x = (int16_t)((camera.rotSin * relX) >> 8) + (int16_t)((camera.rotCos * relY) >> 8);
 		}
 
 		for (int n = 0; n < room.numWalls; n++)
 		{
 			WallSegment& wall = room.walls[n];
 
-			if (wall.connectedRoomIndex != 0)
+			if (wall.connectedRoomIndex != 0 && !(Platform::GetInput() & INPUT_B))
 			{
+				if (context.depth >= maxPortalDepth)
+					continue;
+
 				uint8_t portalClipLeft, portalClipRight;
 				if (IsPortalVisible(context, 
 					viewSpaceVertices[wall.vertexA].x, viewSpaceVertices[wall.vertexA].y,
@@ -956,42 +916,46 @@ void Renderer::DrawGeometry()
 						visibleRooms[wall.connectedRoomIndex] = true;
 						RoomDrawContext& connectedContext = roomsToDraw[numRoomsToDraw];
 						numRoomsToDraw++;
-						connectedContext.Set(wall.connectedRoomIndex, portalClipLeft, portalClipRight);
+						connectedContext.Set(wall.connectedRoomIndex, portalClipLeft, portalClipRight, context.depth + 1);
 					}
 				}
 			}
 			else
 			{
 				DrawWallVS(context, viewSpaceVertices[wall.vertexA].x, viewSpaceVertices[wall.vertexA].y,
-					viewSpaceVertices[wall.vertexB].x, viewSpaceVertices[wall.vertexB].y, wall.colour, Edge_Brick, Edge_None);
+					viewSpaceVertices[wall.vertexB].x, viewSpaceVertices[wall.vertexB].y, wall.colour, wall.length);
 			}
 		}
 
 	}
+
+	unsigned char far* backBuffer = (unsigned char far*) MK_FP(0xB800, 0); 
+	char strBuffer[80];
+	sprintf(strBuffer, "Rooms: %d Walls: %d Visible walls: %d       ", numRoomsToDraw, wallDrawCounter, visibleSegmentCounter);
+	Platform::DrawString(backBuffer, strBuffer, 0, 20, 0xf);
 }
 
-#include <stdio.h>
-#include <memory.h>
-#include <dos.h>
-#include <i86.h>
-#include "Generated/WallScaler.cpp"
 
-void Renderer::Render()
+void Renderer::Render(Player& player)
 {
+	globalRenderFrame++;
+
+	camera.x = player.x;
+	camera.y = player.y;
+	camera.angle = player.angle;
+
 	wallDrawCounter = 0;
 	cellDrawCounter = 0;
 	wallSegmentDrawCounter = 0;
 	visibleSegmentCounter = 0;
 
-	globalRenderFrame++;
-
 	numBufferSlicesFilled = 0;
 	numQueuedDrawables = 0;
-	
+
 	for (uint8_t n = 0; n < DISPLAY_WIDTH; n++)
 	{
-		wBuffer[n] = 0;
-		horizonBuffer[n] = HORIZON + (((DISPLAY_WIDTH / 2 - n) * camera.tilt) >> 8) + camera.bob;
+		wBuffer[n] = 1;
+		//horizonBuffer[n] = HORIZON + (((DISPLAY_WIDTH / 2 - n) * camera.tilt) >> 8) + camera.bob;
 	}
 
 	camera.cellX = camera.x / CELL_SIZE;
@@ -1002,14 +966,8 @@ void Renderer::Render()
 	camera.clipCos = FixedCos(-camera.angle + CLIP_ANGLE);
 	camera.clipSin = FixedSin(-camera.angle + CLIP_ANGLE);
 
-	if (Platform::GetInput() & INPUT_A)
-	{
-		DrawCells();
-	}
-	else
-	{
-		DrawGeometry();
-	}
+	DrawGeometry();
+	
 	//DrawRoom(Map::GetRoom(camera.cellX, camera.cellY));
 	//DrawCells();
 

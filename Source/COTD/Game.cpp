@@ -10,6 +10,7 @@
 #include "Entity.h"
 #include "Enemy.h"
 #include "Menu.h"
+#include "DOSLib.h"
 
 Player Game::player;
 const char* Game::displayMessage = nullptr;
@@ -98,11 +99,7 @@ void Game::Draw()
 			break;
 		case GS_InGame:
 		{
-			Renderer::camera.x = player.x;
-			Renderer::camera.y = player.y;
-			Renderer::camera.angle = player.angle;
-
-			Renderer::Render();
+			Renderer::Render(player);
 		}
 			break;
 		case GS_GameOver:
@@ -135,7 +132,7 @@ void Game::TickInGame()
 	{
 		NextLevel();
 	}
-	
+
 	if (player.hp == 0)
 	{
 		GameOver();

@@ -53,6 +53,7 @@ struct WallSegment
 	uint8_t vertexA, vertexB;
 	uint8_t connectedRoomIndex;
 	uint8_t colour;
+	uint8_t length;
 
 	void Set(uint8_t a, uint8_t b, uint8_t connected, uint8_t col)
 	{
@@ -60,6 +61,7 @@ struct WallSegment
 		vertexB = b;
 		connectedRoomIndex = connected;
 		colour = col;
+		length = 1;
 	}
 };
 

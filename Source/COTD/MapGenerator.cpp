@@ -409,7 +409,7 @@ void MapGenerator::Generate()
 	uint8_t playerStartX = 1;
 	uint8_t playerStartY = 1;
 
-	Platform::Log("Generating..");
+	Platform::Log("Generating level..");
 	fflush(stdout);
 
 	for (int y = 0; y < MAP_HEIGHT; y++)
@@ -424,8 +424,6 @@ void MapGenerator::Generate()
 	nextRoomToGenerate = 2;
 
 	SplitMap(1, 1, MAP_WIDTH - 2, MAP_HEIGHT - 2, 0, 0);
-
-	Platform::Log(".");
 
 	// Find any big open spaces
 	{

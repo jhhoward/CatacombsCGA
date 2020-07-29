@@ -20,6 +20,8 @@ public:
 	static void DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap, const uint8_t *mask, uint8_t frame, uint8_t mask_frame);
 	static void DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t frame);	
 
+	static void DrawString(unsigned char far* vram, const char* string, int x, int y, unsigned char colourAttribute);
+
 	static void DrawVLine(uint8_t x, int8_t y1, int8_t y2, uint8_t pattern);
 	static void DrawBackground();
 
