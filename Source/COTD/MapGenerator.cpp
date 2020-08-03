@@ -256,6 +256,11 @@ void MapGenerator::SplitMap(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t 
 			nextRoomToGenerate++;
 			Map::SetCell(doorX, doorY, CT_Empty);
 			Map::SetRoomIndex(doorX, doorY, doorRoomIndex);
+
+#if WITH_DOORS
+			bool isHorizontal = Map::GetCell(doorX - 1, doorY) == CT_BrickWall;
+			Map::GetRoom(doorRoomIndex).door.Set(doorX, doorY, isHorizontal);
+#endif
 		}
 	}
 

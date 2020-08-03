@@ -87,7 +87,7 @@ void Game::StartLevel()
 	SwitchState(GS_InGame);
 }
 
-void Game::Draw()
+void Game::Draw(backbuffer_t backBuffer)
 {
 	switch(state)
 	{
@@ -99,7 +99,7 @@ void Game::Draw()
 			break;
 		case GS_InGame:
 		{
-			Renderer::Render(player);
+			Renderer::Render(backBuffer, player);
 		}
 			break;
 		case GS_GameOver:
@@ -121,6 +121,7 @@ void Game::TickInGame()
 	}
 
 	player.Tick();
+	Map::Tick();
 
 #if 0
 	ProjectileManager::Update();

@@ -13,17 +13,18 @@ public:
 
 	static long int GetTime() { return milliseconds; }
 
+	static void ClearScreen();
 	static void DisplayFlip();
 
 	static unsigned char normalKeys[0x60];
 	static unsigned char extendedKeys[0x60];
 
 	static unsigned char far* backBuffer;
+	static unsigned char far* frontBuffer;
 
 private:
 	// Video
 	static void SetScreenMode(int screenMode, bool disableBlinking);
-	static void ClearScreen();
 
 	// Timer
 	static void InstallTimer();

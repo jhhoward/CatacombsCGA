@@ -65,6 +65,27 @@ struct WallSegment
 	}
 };
 
+#if WITH_DOORS
+#define MAX_DOOR_OPEN (CELL_SIZE)
+#define DOOR_OPEN_TIME 30
+#define DOOR_OPEN_SPEED 16
+
+class Door
+{
+public:
+	Door() { isActive = false; doorOpen = 0; }
+
+	bool isActive;
+	bool isHorizontal;
+	Vertex hingeLeft;
+	Vertex hingeRight;
+	int16_t doorOpen;
+	uint8_t doorTimer;
+
+	void Set(int x, int y, bool inHorizontal);
+};
+#endif
+
 class Room
 {
 public:
@@ -72,6 +93,10 @@ public:
 	int numWalls;
 	Vertex vertices[MAX_ROOM_VERTICES];
 	WallSegment walls[MAX_ROOM_WALLS];
+
+#if WITH_DOORS
+	Door door;
+#endif
 
 	void AddWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t colour, uint8_t connectedRoomIndex = 0);
 };
@@ -96,6 +121,9 @@ public:
 	static Room& GetRoom(uint8_t index) { return rooms[index]; }
 
 	static bool IsClearLine(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
+
+	static void OpenDoor(uint8_t x, uint8_t y);
+	static void Tick();
 
 	static uint8_t roomIndex[MAP_WIDTH * MAP_HEIGHT];
 

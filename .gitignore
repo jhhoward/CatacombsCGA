@@ -8,3 +8,5 @@ Source/Windows/Arduboy3D/Debug/
 *.obj
 *.err
 .vs/
+Debug/
+*.filters

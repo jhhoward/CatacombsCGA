@@ -63,7 +63,7 @@ public:
 	static uint8_t wallColourLower[DISPLAY_WIDTH];
 	static uint8_t globalRenderFrame;
 
-	static void Render(class Player& player);
+	static void Render(backbuffer_t backBuffer, class Player& player);
 
 	static void DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint8_t scale = 128, bool invert = false);
 	static QueuedDrawable* CreateQueuedDrawable(uint8_t inverseCameraDistance);
@@ -83,6 +83,10 @@ private:
 	static void DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1, int16_t x2, int16_t w2, uint8_t colour);
 	static void DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t colour, uint8_t length);
 
+#if WITH_DOORS
+	static void DrawDoorVS(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2);
+#endif
+
 	static bool IsPortalVisible(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t& clipLeft, uint8_t& clipRight);
 
 
@@ -90,11 +94,11 @@ private:
 	static void TransformToViewSpace(int16_t x, int16_t y, int16_t& outX, int16_t& outY);
 	static void TransformToScreenSpace(int16_t viewX, int16_t viewZ, int16_t& outX, int16_t& outW);
 	
-	static void DrawGeometry();
+	static void DrawGeometry(backbuffer_t backBuffer);
 
 	static void DrawCell(uint8_t x, uint8_t y);
 	static void DrawCells();
-	static void DrawWeapon();
+	static void DrawWeapon(backbuffer_t backBuffer);
 	static void DrawHUD();
 	static void DrawBar(uint8_t* screenPtr, const uint8_t* iconData, uint8_t amount, uint8_t max);
 	static void DrawDamageIndicator();

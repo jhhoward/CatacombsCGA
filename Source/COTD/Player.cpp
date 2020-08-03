@@ -236,6 +236,14 @@ void Player::Tick()
 		Game::stats.scrollsCollected++;
 		break;
 	}
+
+#if WITH_DOORS
+	Map::OpenDoor(cellX, cellY);
+	Map::OpenDoor(cellX - 1, cellY);
+	Map::OpenDoor(cellX + 1, cellY);
+	Map::OpenDoor(cellX, cellY + 1);
+	Map::OpenDoor(cellX, cellY - 1);
+#endif
 }
 
 bool Player::IsWorldColliding() const

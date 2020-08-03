@@ -13,6 +13,7 @@ unsigned char DOSLib::extendedKeys[0x60];
 static unsigned char far* VRAM1 = (unsigned char far*) MK_FP(0xB800, 0);
 static unsigned char far* VRAM2 = (unsigned char far*) MK_FP(0xB900, 0);
 static unsigned char far* DOSLib::backBuffer = (unsigned char far*) MK_FP(0xB900, 0);
+static unsigned char far* DOSLib::frontBuffer = (unsigned char far*) MK_FP(0xB800, 0);
 
 void DOSLib::Init()
 {
@@ -67,6 +68,7 @@ void DOSLib::DisplayFlip()
 	if (backBuffer == VRAM1)
 	{
 		backBuffer = VRAM2;
+		frontBuffer = VRAM1;
 		outp(0x3d4, 0xc);
 		outp(0x3d5, 0x0);
 		outp(0x3d4, 0xd);
@@ -75,6 +77,7 @@ void DOSLib::DisplayFlip()
 	else
 	{
 		backBuffer = VRAM1;
+		frontBuffer = VRAM2;
 		outp(0x3d4, 0xc);
 		outp(0x3d5, 0x8);
 		outp(0x3d4, 0xd);

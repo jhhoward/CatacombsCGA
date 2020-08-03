@@ -16,9 +16,12 @@
 //#include "Font.h"
 #include "DOSLib.h"
 
-#include "LUT.h"
-#include "Generated/WallScaler.cpp"
+#include "Generated/LUT.inc.h"
+#include "Generated/WallScaler.inc.h"
+#include "Generated/DrawRoutines.inc.h"
 //#include "Generated/SpriteData.inc.h"
+//#include "Generated/handsprite.h"
+//#include "Generated/handsprite2.h"
 
 Camera Renderer::camera;
 uint8_t Renderer::wBuffer[DISPLAY_WIDTH];
@@ -48,7 +51,6 @@ void Renderer::DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1,
 	int16_t dw;
 	int8_t wstep;
 	int x;
-	uint8_t y;
 
 	if (x1 < context.clipLeft)
 	{
@@ -506,24 +508,25 @@ void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint
 #endif 
 }
 
-void Renderer::DrawWeapon()
+void Renderer::DrawWeapon(backbuffer_t backBuffer)
 {
-#if 0
-	int x = DISPLAY_WIDTH / 2 + 22 + camera.tilt / 4;
-	int y = DISPLAY_HEIGHT - 21 - camera.bob;
+	int x = DISPLAY_WIDTH / 2 + 11 + camera.tilt / 4;
+	int y = camera.bob;
 	uint8_t reloadTime = Game::player.reloadTime;
 	
 	if(reloadTime > 0)
 	{
-		Platform::DrawSprite(x - reloadTime / 3 - 1, y - reloadTime / 3 - 1, handSpriteData2, 0);
-		//DrawSprite(x - reloadTime / 3 - 1, y - reloadTime / 3 - 1, handSpriteData2, handSpriteData2_mask, 0, 0);	
+		//Platform::DrawSprite(x - reloadTime / 3 - 1, y - reloadTime / 3 - 1, handSpriteData2, 0);
+		//x -= reloadTime / 3;
+		//y += reloadTime / 3 + 3;
+		y++;
+		DrawHand2(backBuffer, x, y);
 	}
 	else
-	{
-		Platform::DrawSprite(x + 2, y + 2, handSpriteData1, 0);
-		//DrawSprite(x + 2, y + 2, handSpriteData1, handSpriteData1_mask, 0, 0);	
+	{ 
+		//Platform::DrawSprite(x + 2, y + 2, handSpriteData1, 0);
+		DrawHand1(backBuffer, x + 2, y + 2);
 	}
-#endif
 }
 
 void Renderer::DrawBar(uint8_t* screenPtr, const uint8_t* iconData, uint8_t amount, uint8_t max)
@@ -605,7 +608,6 @@ void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t view
 	wallDrawCounter++;
 
 	int16_t vx1, vx2;
-	int16_t vxMid;
 	int16_t sx1, sx2;
 	int16_t w1, w2;
 	bool leftEdgeVisible = true;
@@ -649,10 +651,10 @@ void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t view
 	currentWallId++;
 	DrawWallSegment(context, sx1, w1, sx2, w2, colour);
 
-	bool lowDetail = (Platform::GetInput() & INPUT_A) != 0;
-
-	if (lowDetail)
-		return;
+	//bool lowDetail = (Platform::GetInput() & INPUT_A) != 0;
+	//
+	//if (lowDetail)
+	//	return;
 
 	if (leftEdgeVisible && sx1 >= context.clipLeft && wallId[sx1] == currentWallId)
 	{
@@ -694,6 +696,76 @@ void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t view
 		}
 	}
 }
+
+#if WITH_DOORS
+void Renderer::DrawDoorVS(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2)
+{
+	wallDrawCounter++;
+
+	int16_t vx1, vx2;
+	int16_t vxMid;
+	int16_t sx1, sx2;
+	int16_t w1, w2;
+
+	// clip to the front pane
+	if ((viewZ1 < CLIP_PLANE) && (viewZ2 < CLIP_PLANE))
+		return;
+
+	if (viewZ1 < CLIP_PLANE)
+	{
+		viewX1 += (int32_t)(CLIP_PLANE - viewZ1) * (int32_t)(viewX2 - viewX1) / (int32_t)(viewZ2 - viewZ1);
+		viewZ1 = CLIP_PLANE;
+	}
+	else if (viewZ2 < CLIP_PLANE)
+	{
+		viewX2 += (int32_t)(CLIP_PLANE - viewZ2) * (int32_t)(viewX1 - viewX2) / (int32_t)(viewZ1 - viewZ2);
+		viewZ2 = CLIP_PLANE;
+	}
+
+	// apply perspective projection
+	vx1 = (int16_t)((int32_t)viewX1 * NEAR_PLANE * CAMERA_SCALE / viewZ1);
+	vx2 = (int16_t)((int32_t)viewX2 * NEAR_PLANE * CAMERA_SCALE / viewZ2);
+
+	// transform the end points into screen space
+	sx1 = (int16_t)((DISPLAY_WIDTH / 2) + vx1);
+	sx2 = (int16_t)((DISPLAY_WIDTH / 2) + vx2) - 1;
+
+	int16_t edgeX = sx2;
+	int16_t handleX = sx2 - 2;
+
+	if (sx1 > sx2)
+	{
+		int16_t temp = sx2;
+		sx2 = sx1;
+		sx1 = temp;
+		temp = viewZ1;
+		viewZ1 = viewZ2;
+		viewZ2 = temp;
+		handleX = sx1 + 2;
+		edgeX = sx1;
+	}
+
+	if (sx2 <= context.clipLeft || sx1 >= context.clipRight)
+		return;
+
+	w1 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ1);
+	w2 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ2);
+
+	currentWallId++;
+	const uint8_t doorColour = 6;
+	DrawWallSegment(context, sx1, w1, sx2, w2, doorColour);
+
+	if (edgeX >= context.clipLeft && edgeX < context.clipRight && wallId[edgeX] == currentWallId)
+	{
+		wallColourLower[edgeX] = 0;
+		wallColourUpper[edgeX] = 0;
+	}
+	if (handleX >= context.clipLeft && handleX < context.clipRight && wallId[handleX] == currentWallId)
+	{
+		wallColourLower[handleX] = 7;
+	}
+}
+#endif
 
 #define PORTAL_CLIP_PLANE CLIP_PLANE
 #define RASTERISE_PORTAL 0
@@ -852,7 +924,7 @@ bool Renderer::IsPortalVisible(RoomDrawContext& context, int16_t viewX1, int16_t
 }
 
 
-void Renderer::DrawGeometry()
+void Renderer::DrawGeometry(backbuffer_t backBuffer)
 {
 	Vertex viewSpaceVertices[MAX_ROOM_VERTICES];
 	RoomDrawContext roomsToDraw[MAX_ROOMS];
@@ -887,6 +959,10 @@ void Renderer::DrawGeometry()
 			{
 				if (context.depth >= maxPortalDepth)
 					continue;
+#if WITH_DOORS
+				if (room.door.isActive && !room.door.doorOpen)
+					continue;
+#endif
 
 				uint8_t portalClipLeft, portalClipRight;
 				if (IsPortalVisible(context, 
@@ -927,16 +1003,65 @@ void Renderer::DrawGeometry()
 			}
 		}
 
+#if WITH_DOORS
+		if (room.door.isActive && room.door.doorOpen < MAX_DOOR_OPEN)
+		{
+			Vertex hingeLeftVS, hingeRightVS;
+
+			if (room.door.isHorizontal)
+			{
+				TransformToViewSpace(room.door.hingeLeft.x, room.door.hingeLeft.y, hingeLeftVS.x, hingeLeftVS.y);
+				TransformToViewSpace(room.door.hingeRight.x - room.door.doorOpen, room.door.hingeRight.y, hingeRightVS.x, hingeRightVS.y);
+			}
+			else
+			{
+				TransformToViewSpace(room.door.hingeLeft.x, room.door.hingeLeft.y, hingeLeftVS.x, hingeLeftVS.y);
+				TransformToViewSpace(room.door.hingeRight.x, room.door.hingeRight.y - room.door.doorOpen, hingeRightVS.x, hingeRightVS.y);
+			}
+			DrawDoorVS(context, hingeLeftVS.x, hingeLeftVS.y, hingeRightVS.x, hingeRightVS.y);
+
+			/*
+			Vertex hingeLeftVS, hingeRightVS;
+			Vertex doorLeft, doorRight;
+			Vertex doorLeftVS, doorRightVS;
+
+			if (room.door.isHorizontal)
+			{
+				int16_t deltaX = CELL_SIZE / 2 - room.door.doorOpen; 
+				doorLeft.x = room.door.hingeLeft.x + deltaX;
+				doorLeft.y = room.door.hingeLeft.y;
+				doorRight.x = room.door.hingeRight.x - deltaX;
+				doorRight.y = room.door.hingeRight.y;
+			}
+			else
+			{
+				int16_t deltaY = CELL_SIZE / 2 - room.door.doorOpen;
+				doorLeft.x = room.door.hingeLeft.x;
+				doorLeft.y = room.door.hingeLeft.y + deltaY;
+				doorRight.x = room.door.hingeRight.x;
+				doorRight.y = room.door.hingeRight.y - deltaY;
+			}
+
+			TransformToViewSpace(room.door.hingeLeft.x, room.door.hingeLeft.y, hingeLeftVS.x, hingeLeftVS.y);
+			TransformToViewSpace(room.door.hingeRight.x, room.door.hingeRight.y, hingeRightVS.x, hingeRightVS.y);
+			TransformToViewSpace(doorLeft.x, doorLeft.y, doorLeftVS.x, doorLeftVS.y);
+			TransformToViewSpace(doorRight.x, doorRight.y, doorRightVS.x, doorRightVS.y);
+
+			DrawDoorVS(context, hingeLeftVS.x, hingeLeftVS.y, doorLeftVS.x, doorLeftVS.y);
+			DrawDoorVS(context, hingeRightVS.x, hingeRightVS.y, doorRightVS.x, doorRightVS.y);
+			*/
+		}
+#endif
 	}
 
-	unsigned char far* backBuffer = (unsigned char far*) MK_FP(0xB800, 0); 
+	//unsigned char far* backBuffer = (unsigned char far*) MK_FP(0xB800, 0); 
 	char strBuffer[80];
 	sprintf(strBuffer, "Rooms: %d Walls: %d Visible walls: %d       ", numRoomsToDraw, wallDrawCounter, visibleSegmentCounter);
 	Platform::DrawString(backBuffer, strBuffer, 0, 20, 0xf);
 }
 
 
-void Renderer::Render(Player& player)
+void Renderer::Render(backbuffer_t backBuffer, Player& player)
 {
 	globalRenderFrame++;
 
@@ -966,7 +1091,7 @@ void Renderer::Render(Player& player)
 	camera.clipCos = FixedCos(-camera.angle + CLIP_ANGLE);
 	camera.clipSin = FixedSin(-camera.angle + CLIP_ANGLE);
 
-	DrawGeometry();
+	DrawGeometry(backBuffer);
 	
 	//DrawRoom(Map::GetRoom(camera.cellX, camera.cellY));
 	//DrawCells();
@@ -982,16 +1107,16 @@ void Renderer::Render(Player& player)
 
 	DrawHUD();
 	*/
-
+	 
 	
-	unsigned char far* backBuffer = (unsigned char far*) MK_FP(0xB800, 0);
 	int bufferOffset = 1;
 	for (int x = 0; x < DISPLAY_WIDTH; x++)
 	{
 		RenderWallSlice(backBuffer + bufferOffset, wBuffer[x], wallColourUpper[x], wallColourLower[x]);
 		bufferOffset += 2;
 	}
-	
+
+	DrawWeapon(backBuffer);
 
 	//printf("Cells: %d Walls: %d Segments: %d Visible: %d\n", cellDrawCounter, wallDrawCounter, wallSegmentDrawCounter, visibleSegmentCounter);
 }

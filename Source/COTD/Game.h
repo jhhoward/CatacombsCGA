@@ -36,7 +36,7 @@ public:
 
 	static void Init();
 	static void Tick();
-	static void Draw();
+	static void Draw(backbuffer_t backBuffer);
 
 	static void StartGame();
 	static void StartLevel();

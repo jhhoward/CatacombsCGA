@@ -356,3 +356,62 @@ void Room::AddWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t colou
 	numWalls++;
 }
 
+#if WITH_DOORS
+void Door::Set(int x, int y, bool inHorizontal)
+{
+	isActive = true;
+	isHorizontal = inHorizontal;
+
+	if (isHorizontal)
+	{
+		hingeLeft.x = x * CELL_SIZE;
+		hingeLeft.y = y * CELL_SIZE + CELL_SIZE / 2;
+		hingeRight.x = x * CELL_SIZE + CELL_SIZE;
+		hingeRight.y = y * CELL_SIZE + CELL_SIZE / 2;
+	}
+	else
+	{
+		hingeLeft.x = x * CELL_SIZE + CELL_SIZE / 2;
+		hingeLeft.y = y * CELL_SIZE;
+		hingeRight.x = x * CELL_SIZE + CELL_SIZE / 2;
+		hingeRight.y = y * CELL_SIZE + CELL_SIZE;
+	}
+}
+
+void Map::OpenDoor(uint8_t x, uint8_t y)
+{
+	Room& room = GetRoom(x, y);
+	if (room.door.isActive)
+	{
+		room.door.doorTimer = DOOR_OPEN_TIME;
+	}
+}
+#endif
+
+void Map::Tick()
+{
+#if WITH_DOORS
+	for (int n = 0; n < MAX_ROOMS; n++)
+	{
+		Room& room = rooms[n];
+		if (room.door.isActive)
+		{
+			if (room.door.doorTimer > 0)
+			{
+				if (room.door.doorOpen < MAX_DOOR_OPEN)
+				{
+					room.door.doorOpen += DOOR_OPEN_SPEED;
+				}
+				else
+				{
+					room.door.doorTimer--;
+				}
+			}
+			else if (room.door.doorOpen > 0)
+			{
+				room.door.doorOpen -= DOOR_OPEN_SPEED;
+			}
+		}
+	}
+#endif
+}

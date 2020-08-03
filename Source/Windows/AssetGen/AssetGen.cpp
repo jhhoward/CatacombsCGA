@@ -2,12 +2,67 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include "../Arduboy3D/lodepng.h"
+#include "lodepng.h"
+#include "Defines.h"
+#include "FixedMath.h"
 
 using namespace std;
 
-const char* spriteDataHeaderOutputPath = "Source/Arduboy3D/Generated/SpriteData.inc.h";
-const char* spriteTypesHeaderOutputPath = "Source/Arduboy3D/Generated/SpriteTypes.h";
+#define GENERATED_DIR "Source/COTD/Generated/"
+
+const char* spriteDataHeaderOutputPath = GENERATED_DIR "SpriteData.inc.h";
+const char* spriteTypesHeaderOutputPath = GENERATED_DIR "SpriteTypes.h";
+const char* sinTableHeaderOutputPath = GENERATED_DIR "LUT.inc.h";
+const char* wallScalerHeaderOutputPath = GENERATED_DIR "WallScaler.inc.h";
+const char* drawRoutinesHeaderOutputPath = GENERATED_DIR "DrawRoutines.inc.h";
+
+void WriteWallScaler(ofstream& output);
+
+unsigned char palette[16 * 3] =
+{
+	0,	0,	0,
+	0,	0,	0xaa,
+	0,	0xaa,	0,
+	0,	0xaa,	0xaa,
+	0xaa,	0,	0,
+	0xaa,	0,	0xaa,
+	0xaa,	0x55,	0,
+	0xaa,	0xaa,	0xaa,
+	0x55,	0x55,	0x55,
+	0x55,	0x55,	0xff,
+	0x55,	0xff,	0x55,
+	0x55,	0xff,	0xff,
+	0xff,	0x55,	0x55,
+	0xff,	0x55,	0xff,
+	0xff,	0xff,	0x55,
+	0xff,	0xff,	0xff
+};
+
+unsigned char matchColour(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
+{
+	if (a == 0)
+	{
+		return 0xff;
+	}
+
+	unsigned char closest = 0;
+	int closestDistance = -1;
+
+	for (int n = 0; n < 16; n++)
+	{
+		int distance = (r - palette[n * 3]) * (r - palette[n * 3])
+			+ (g - palette[n * 3 + 1]) * (g - palette[n * 3 + 1])
+			+ (b - palette[n * 3 + 2]) * (b - palette[n * 3 + 2]);
+		if (closestDistance == -1 || distance < closestDistance)
+		{
+			closestDistance = distance;
+			closest = (unsigned char)(n);
+		}
+	}
+
+	return closest;
+}
+
 
 enum class ImageColour
 {
@@ -432,9 +487,141 @@ void EncodeSprite2D(ofstream& typefs, ofstream& fs, const char* inputPath, const
 	*/
 }
 
+bool LoadPNGAsPaletted(const char* path, vector<unsigned char>& output, unsigned int& width, unsigned int& height)
+{
+	vector<unsigned char> image;
+
+	unsigned error = lodepng::decode(image, width, height, path);
+
+	if (!error)
+	{
+		cout << "Dimensions: " << width << ", " << height << endl;
+
+		for (unsigned int n = 0; n < width * height; n++)
+		{
+			unsigned char col = matchColour(image[n * 4], image[n * 4 + 1], image[n * 4 + 2], image[n * 4 + 3]);
+			output.push_back(col);
+		}
+		return true;
+	}
+	return false;
+}
+
+void GenerateWeaponRoutine(ofstream& output, const char* routineName, const char* sourceImagePath)
+{
+	vector<unsigned char> palettedImage;
+	unsigned int width, height;
+
+	if (!LoadPNGAsPaletted(sourceImagePath, palettedImage, width, height))
+	{
+		return;
+	}
+
+	output << "void Draw" << routineName << "(unsigned char far* p, unsigned char x, unsigned char y) {" << endl;
+	output << "  p += (x << 1);" << endl;
+	output << "  p += " << (160 * (20 - height / 2)) << " + ((y >> 1) * 160) ;" << endl;
+	output << "  switch(y) {" << endl;
+
+	int yCase = 0;
+
+	for (int y = height - 1; y >= 0; y -= 2)
+	{
+		output << "   case " << yCase << ":" << endl;
+		yCase += 2;
+		output << "    ";
+		for (unsigned int x = 0; x < width; x++)
+		{
+			int index = ((y / 2) * 80 + x) * 2 + 1;
+			int lower = palettedImage[y * width + x];
+			int upper = palettedImage[(y - 1) * width + x];
+
+			if (upper != 0xff && lower != 0xff)
+			{
+				int col = upper | (lower << 4);
+				output << "p[" << index << "]=" << col << ";";
+			}
+			else if (upper != 0xff)
+			{
+				output << "p[" << index << "]=(p[" << index << "]&0xf0)|" << upper << ";";
+			}
+			else if (lower != 0xff)
+			{
+				output << "p[" << index << "]=(p[" << index << "]&0xf)|" << (lower << 4) << ";";
+			}
+		}
+		output << endl;
+	}
+	output << "   break;" << endl;
+
+	yCase = 1;
+
+	for (int y = height - 2; y >= 0; y -= 2)
+	{
+		output << "   case " << yCase << ":" << endl;
+		yCase += 2;
+		output << "    ";
+		for (unsigned int x = 0; x < width; x++)
+		{
+			int index = ((y / 2) * 80 + x) * 2 + 1;
+			int lower = palettedImage[y * width + x];
+			int upper = y > 0 ? palettedImage[(y - 1) * width + x] : 0xff;
+
+			if (upper != 0xff && lower != 0xff)
+			{
+				int col = upper | (lower << 4);
+				output << "p[" << index << "]=" << col << ";";
+			}
+			else if (upper != 0xff)
+			{
+				output << "p[" << index << "]=(p[" << index << "]&0xf0)|" << upper << ";";
+			}
+			else if (lower != 0xff)
+			{
+				output << "p[" << index << "]=(p[" << index << "]&0xf)|" << (lower << 4) << ";";
+			}
+		}
+		output << endl;
+	}
+
+	output << "   break;" << endl;
+	output << "  }" << endl;
+	output << endl;
+
+	output << "}" << endl;
+}
+
+void GenerateSinTable()
+{
+	FILE* fs;
+	fopen_s(&fs, sinTableHeaderOutputPath, "w");
+
+	if (!fs)
+		return;
+
+	int16_t gen_sinTable[FIXED_ANGLE_MAX];
+
+	for (int n = 0; n < FIXED_ANGLE_MAX; n++)
+	{
+		gen_sinTable[n] = FLOAT_TO_FIXED(sin(FIXED_ANGLE_TO_RADIANS(n)));
+	}
+
+	fprintf(fs, "const int16_t sinTable[] = {\n\t");
+	for (int n = 0; n < FIXED_ANGLE_MAX; n++)
+	{
+		fprintf(fs, "%d", gen_sinTable[n]);
+		if (n != FIXED_ANGLE_MAX - 1)
+		{
+			fprintf(fs, ",");
+		}
+	}
+	fprintf(fs, "\n};\n\n");
+
+	fclose(fs);
+}
+
 int main(int argc, char* argv[])
 {
-	ofstream dataFile;
+	/*ofstream dataFile;
 	ofstream typeFile;
 
 	dataFile.open(spriteDataHeaderOutputPath);
@@ -470,8 +657,22 @@ int main(int argc, char* argv[])
 	EncodeHUDElement(typeFile, dataFile, "Images/mana.png", "manaSpriteData");
 
 	dataFile.close();
-	typeFile.close();
-	
+	typeFile.close();*/
+
+	GenerateSinTable();
+
+	ofstream wallScalerFile;
+	wallScalerFile.open(wallScalerHeaderOutputPath);
+	WriteWallScaler(wallScalerFile);
+	wallScalerFile.close();
+
+	ofstream drawRoutinesFile;
+	drawRoutinesFile.open(drawRoutinesHeaderOutputPath);
+	GenerateWeaponRoutine(drawRoutinesFile, "Hand1", "Images/hand1c.png");
+	GenerateWeaponRoutine(drawRoutinesFile, "Hand2", "Images/hand2c.png");
+	drawRoutinesFile.close();
+
+
 	return 0;
 }
 

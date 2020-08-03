@@ -71,11 +71,12 @@
     <NMakeIncludeSearchPath>C:\WATCOM\h</NMakeIncludeSearchPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
+    <NMakeBuildCommandLine>$(ProjectDir)build.bat</NMakeBuildCommandLine>
     <NMakeOutput>COTD.exe</NMakeOutput>
-    <NMakeCleanCommandLine>clean.bat</NMakeCleanCommandLine>
-    <NMakeReBuildCommandLine>rebuild.bat</NMakeReBuildCommandLine>
-    <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakeCleanCommandLine>$(ProjectDir)clean.bat</NMakeCleanCommandLine>
+    <NMakeReBuildCommandLine>$(ProjectDir)rebuild.bat</NMakeReBuildCommandLine>
+    <NMakePreprocessorDefinitions>_DEBUG;$(NMakePreprocessorDefinitions);_M_I86;far=;_DOS</NMakePreprocessorDefinitions>
+    <NMakeIncludeSearchPath>C:\WATCOM\h</NMakeIncludeSearchPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <NMakeBuildCommandLine>build.bat</NMakeBuildCommandLine>
