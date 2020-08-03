@@ -4,13 +4,13 @@
 #include "FixedMath.h"
 #include "Particle.h"
 #include "Enemy.h"
-//#include "Generated/SpriteTypes.h"
+#include "Generated/SpriteTypes.h"
 #include "Platform.h"
 #include "Sounds.h"
 
 Projectile ProjectileManager::projectiles[MAX_PROJECTILES];
 
-Projectile* ProjectileManager::FireProjectile(Entity* owner, int16_t x, int16_t y, uint8_t angle)
+Projectile* ProjectileManager::FireProjectile(Entity* owner, int16_t x, int16_t y, angle_t angle)
 {
 	for(int i = 0; i < MAX_PROJECTILES; i++)
 	{
@@ -76,7 +76,7 @@ void ProjectileManager::Update()
 				if (Map::GetCellSafe(cellX, cellY) == CT_Urn)
 				{
 					Map::SetCell(cellX, cellY, CT_Empty);
-					ParticleSystemManager::CreateExplosion(cellX * CELL_SIZE + CELL_SIZE / 2, cellY * CELL_SIZE + CELL_SIZE / 2, true);
+					ParticleSystemManager::CreateExplosion(cellX * CELL_SIZE + CELL_SIZE / 2, cellY * CELL_SIZE + CELL_SIZE / 2, 7, 8);
 
 					switch ((Random() % 5))
 					{
@@ -128,7 +128,7 @@ void ProjectileManager::Update()
 
 			if (hitAnything)
 			{
-				ParticleSystemManager::CreateExplosion(p.x - deltaX, p.y - deltaY);
+				ParticleSystemManager::CreateExplosion(p.x - deltaX, p.y - deltaY, 4, 14);
 				p.life = 0;
 			}
 		}
@@ -146,14 +146,13 @@ void ProjectileManager::Init()
 
 void ProjectileManager::Draw()
 {
-#if 0
 	for (int i = 0; i < MAX_PROJECTILES; i++)
 	{
 		Projectile& p = projectiles[i];
 		if (p.life > 0)
 		{
-			Renderer::DrawObject(p.ownerId == PLAYER_OWNER_ID ? projectileSpriteData : enemyProjectileSpriteData, p.x, p.y, 32);
+			//Renderer::DrawObject(p.ownerId == PLAYER_OWNER_ID ? projectileSpriteData : enemyProjectileSpriteData, p.x, p.y, 32);
+			Renderer::DrawObject(p.ownerId == PLAYER_OWNER_ID ? DrawPlayerProjectile : DrawPlayerProjectile, p.x, p.y, 32);
 		}
 	}
-#endif
 }

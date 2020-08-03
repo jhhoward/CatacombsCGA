@@ -492,7 +492,6 @@ void MapGenerator::Generate()
 		}
 	}
 
-#if 0
 	// Add torches
 	{
 		uint8_t attempts = 255;
@@ -546,7 +545,6 @@ void MapGenerator::Generate()
 			attempts--;
 		}
 	}
-#endif
 
 	// Add blocking decorations
 	{

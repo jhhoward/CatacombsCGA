@@ -15,11 +15,12 @@
 #include "Enemy.h"
 //#include "Font.h"
 #include "DOSLib.h"
+#include "Profiler.h"
 
 #include "Generated/LUT.inc.h"
 #include "Generated/WallScaler.inc.h"
 #include "Generated/DrawRoutines.inc.h"
-//#include "Generated/SpriteData.inc.h"
+#include "Generated/SpriteData.inc.h"
 //#include "Generated/handsprite.h"
 //#include "Generated/handsprite2.h"
 
@@ -41,7 +42,7 @@ static int wallSegmentDrawCounter = 0;
 static int cellDrawCounter = 0;
 static int visibleSegmentCounter = 0;
 
-void Renderer::DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1, int16_t x2, int16_t w2, uint8_t colour)
+void inline Renderer::DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1, int16_t x2, int16_t w2, uint8_t colour)
 {
 	wallSegmentDrawCounter++;
 
@@ -116,7 +117,7 @@ void Renderer::DrawWallSegment(RoomDrawContext& context, int16_t x1, int16_t w1,
 	}
 }
 
-bool Renderer::isFrustrumClipped(int16_t x, int16_t y)
+inline bool Renderer::isFrustrumClipped(int16_t x, int16_t y)
 {
 	if ((camera.clipCos * (x - camera.cellX) - camera.clipSin * (y - camera.cellY)) < -512)
 		return true;
@@ -126,7 +127,7 @@ bool Renderer::isFrustrumClipped(int16_t x, int16_t y)
 	return false;
 }
 
-void Renderer::TransformToViewSpace(int16_t x, int16_t y, int16_t& outX, int16_t& outY)
+inline void Renderer::TransformToViewSpace(int16_t x, int16_t y, int16_t& outX, int16_t& outY)
 {
 	//if (DOSLib::normalKeys[0x1c])
 	{
@@ -144,7 +145,7 @@ void Renderer::TransformToViewSpace(int16_t x, int16_t y, int16_t& outX, int16_t
 	}*/
 }
 
-void Renderer::TransformToScreenSpace(int16_t viewX, int16_t viewZ, int16_t& outX, int16_t& outW)
+inline void Renderer::TransformToScreenSpace(int16_t viewX, int16_t viewZ, int16_t& outX, int16_t& outW)
 {
 	// apply perspective projection
 	outX = (int16_t)((int32_t)viewX * NEAR_PLANE * CAMERA_SCALE / viewZ);
@@ -406,7 +407,7 @@ QueuedDrawable* Renderer::CreateQueuedDrawable(uint8_t inverseCameraDistance)
 	return &queuedDrawables[insertionPoint];
 }
 
-void Renderer::QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance, bool invert)
+void inline Renderer::QueueSprite(drawRoutine_t drawRoutine, int8_t x, int8_t y, uint8_t halfSize, uint8_t inverseCameraDistance, bool invert)
 {
 	if(x < -halfSize * 2)
 		return;
@@ -420,7 +421,7 @@ void Renderer::QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t hal
 	if(drawable != nullptr)
 	{
 		drawable->type = DT_Sprite;
-		drawable->spriteData = data;
+		drawable->drawRoutine = drawRoutine;
 		drawable->x = x;
 		drawable->y = y;
 		drawable->halfSize = halfSize;
@@ -429,23 +430,31 @@ void Renderer::QueueSprite(const uint16_t* data, int8_t x, int8_t y, uint8_t hal
 	}
 }
 
-void Renderer::RenderQueuedDrawables()
+inline void Renderer::RenderQueuedDrawables(backbuffer_t backBuffer)
 {
-#if 0
 	for(uint8_t n = 0; n < numQueuedDrawables; n++)
 	{
 		QueuedDrawable& drawable = queuedDrawables[n];
 		
-		if(drawable.type == DrawableType::Sprite)
+		if(drawable.type == DT_Sprite)
 		{
-			DrawScaled(drawable.spriteData, drawable.x, drawable.y, drawable.halfSize, drawable.inverseCameraDistance, drawable.invert);
+			int outX = drawable.x;
+			uint8_t size = drawable.halfSize << 1;
+			for (uint8_t x = 0; x < size; x++)
+			{
+				if (outX >= 0 && outX < DISPLAY_WIDTH && wBuffer[outX] < drawable.inverseCameraDistance)
+				{
+					drawable.drawRoutine(backBuffer + outX * 2 + 1, x, drawable.halfSize);
+				}
+				outX++;
+			}
+			//DrawScaled(drawable.drawRoutine, drawable.x, drawable.y, drawable.halfSize, drawable.inverseCameraDistance, drawable.invert);
 		}
 		else
 		{
 			drawable.particleSystem->Draw(drawable.x, drawable.inverseCameraDistance);
 		}
 	}
-#endif
 }
 
 int8_t Renderer::GetHorizon(int16_t x)
@@ -476,9 +485,8 @@ bool Renderer::TransformAndCull(int16_t worldX, int16_t worldY, int16_t& outScre
 	return true;
 }
 
-void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint8_t scale, bool invert)
+void Renderer::DrawObject(drawRoutine_t drawRoutine, int16_t x, int16_t y, uint8_t scale, bool invert)
 {
-#if 0
 	int16_t screenX, screenW;
 
 	if(TransformAndCull(x, y, screenX, screenW))
@@ -488,7 +496,7 @@ void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint
 		int16_t spriteSize = (screenW * scale) / 128;
 		int8_t outY = GetHorizon(screenX);
 
-		switch (anchor)
+		/*switch (anchor)
 		{
 		case AnchorType::Floor:
 			outY += screenW - 2 * spriteSize;
@@ -501,14 +509,13 @@ void Renderer::DrawObject(const uint16_t* spriteData, int16_t x, int16_t y, uint
 		case AnchorType::Ceiling:
 			outY -= screenW;
 			break;
-		}
+		}*/
 		
-		QueueSprite(spriteData, screenX - spriteSize, outY, (uint8_t)spriteSize, inverseCameraDistance, invert);
+		QueueSprite(drawRoutine, screenX - spriteSize, outY, (uint8_t)spriteSize, inverseCameraDistance, invert);
 	}
-#endif 
 }
 
-void Renderer::DrawWeapon(backbuffer_t backBuffer)
+inline void Renderer::DrawWeapon(backbuffer_t backBuffer)
 {
 	int x = DISPLAY_WIDTH / 2 + 11 + camera.tilt / 4;
 	int y = camera.bob;
@@ -603,8 +610,9 @@ void Renderer::DrawHUD()
 #endif
 }
 
-void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t colour, uint8_t length)
+inline void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t colour, uint8_t length)
 {
+	PROFILE_SECTION(PlotWall);
 	wallDrawCounter++;
 
 	int16_t vx1, vx2;
@@ -650,11 +658,6 @@ void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16_t view
 
 	currentWallId++;
 	DrawWallSegment(context, sx1, w1, sx2, w2, colour);
-
-	//bool lowDetail = (Platform::GetInput() & INPUT_A) != 0;
-	//
-	//if (lowDetail)
-	//	return;
 
 	if (leftEdgeVisible && sx1 >= context.clipLeft && wallId[sx1] == currentWallId)
 	{
@@ -770,7 +773,7 @@ void Renderer::DrawDoorVS(RoomDrawContext& context, int16_t viewX1, int16_t view
 #define PORTAL_CLIP_PLANE CLIP_PLANE
 #define RASTERISE_PORTAL 0
 
-bool Renderer::IsPortalVisible(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t& clipLeft, uint8_t& clipRight)
+inline bool Renderer::IsPortalVisible(RoomDrawContext& context, int16_t viewX1, int16_t viewZ1, int16_t viewX2, int16_t viewZ2, uint8_t& clipLeft, uint8_t& clipRight)
 {
 	int16_t vx1, vx2;
 	int16_t sx1, sx2;
@@ -955,8 +958,10 @@ void Renderer::DrawGeometry(backbuffer_t backBuffer)
 		{
 			WallSegment& wall = room.walls[n];
 
-			if (wall.connectedRoomIndex != 0 && !(Platform::GetInput() & INPUT_B))
+			if (wall.connectedRoomIndex != 0)
 			{
+				PROFILE_SECTION(CalcPortal);
+
 				if (context.depth >= maxPortalDepth)
 					continue;
 #if WITH_DOORS
@@ -1001,6 +1006,11 @@ void Renderer::DrawGeometry(backbuffer_t backBuffer)
 				DrawWallVS(context, viewSpaceVertices[wall.vertexA].x, viewSpaceVertices[wall.vertexA].y,
 					viewSpaceVertices[wall.vertexB].x, viewSpaceVertices[wall.vertexB].y, wall.colour, wall.length);
 			}
+		}
+
+		for (int n = 0; n < room.numTorches; n++)
+		{
+			DrawObject(DrawTorch1, room.torches[n].x, room.torches[n].y, 75, false);
 		}
 
 #if WITH_DOORS
@@ -1060,6 +1070,10 @@ void Renderer::DrawGeometry(backbuffer_t backBuffer)
 	Platform::DrawString(backBuffer, strBuffer, 0, 20, 0xf);
 }
 
+#define UNROLL_8(CODE) CODE CODE CODE CODE CODE CODE CODE CODE
+#define UNROLL_80(CODE)  \
+	UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE) \
+	UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE)
 
 void Renderer::Render(backbuffer_t backBuffer, Player& player)
 {
@@ -1077,14 +1091,19 @@ void Renderer::Render(backbuffer_t backBuffer, Player& player)
 	numBufferSlicesFilled = 0;
 	numQueuedDrawables = 0;
 
-	for (uint8_t n = 0; n < DISPLAY_WIDTH; n++)
 	{
-		wBuffer[n] = 1;
-		//horizonBuffer[n] = HORIZON + (((DISPLAY_WIDTH / 2 - n) * camera.tilt) >> 8) + camera.bob;
+		uint8_t n = 0;
+		UNROLL_80(wBuffer[n++] = 1;)
 	}
 
-	camera.cellX = camera.x / CELL_SIZE;
-	camera.cellY = camera.y / CELL_SIZE;
+	//for (uint8_t n = 0; n < DISPLAY_WIDTH; n++)
+	//{
+	//	wBuffer[n] = 1;
+	//	//horizonBuffer[n] = HORIZON + (((DISPLAY_WIDTH / 2 - n) * camera.tilt) >> 8) + camera.bob;
+	//}
+
+	//camera.cellX = camera.x / CELL_SIZE;
+	//camera.cellY = camera.y / CELL_SIZE;
 
 	camera.rotCos = FixedCos(-camera.angle);
 	camera.rotSin = FixedSin(-camera.angle);
@@ -1092,28 +1111,30 @@ void Renderer::Render(backbuffer_t backBuffer, Player& player)
 	camera.clipSin = FixedSin(-camera.angle + CLIP_ANGLE);
 
 	DrawGeometry(backBuffer);
-	
-	//DrawRoom(Map::GetRoom(camera.cellX, camera.cellY));
-	//DrawCells();
+	ProjectileManager::Draw();
+	EnemyManager::Draw();
+	ParticleSystemManager::Draw();
 
 	/*
-	EnemyManager::Draw();
-	ProjectileManager::Draw();
-	ParticleSystemManager::Draw();
 	
-	RenderQueuedDrawables();
-	
-	DrawWeapon();
 
 	DrawHUD();
 	*/
-	 
-	
-	int bufferOffset = 1;
-	for (int x = 0; x < DISPLAY_WIDTH; x++)
+
+
 	{
-		RenderWallSlice(backBuffer + bufferOffset, wBuffer[x], wallColourUpper[x], wallColourLower[x]);
-		bufferOffset += 2;
+		PROFILE_SECTION(BlitWall);
+		int bufferOffset = 1;
+		for (int x = 0; x < DISPLAY_WIDTH; x++)
+		{
+			RenderWallSlice(backBuffer + bufferOffset, wBuffer[x], wallColourUpper[x], wallColourLower[x]);
+			bufferOffset += 2;
+		}
+	}
+
+	{
+		PROFILE_SECTION(BlitSprite);
+		RenderQueuedDrawables(backBuffer);
 	}
 
 	DrawWeapon(backBuffer);
@@ -1121,3 +1142,7 @@ void Renderer::Render(backbuffer_t backBuffer, Player& player)
 	//printf("Cells: %d Walls: %d Segments: %d Visible: %d\n", cellDrawCounter, wallDrawCounter, wallSegmentDrawCounter, visibleSegmentCounter);
 }
 
+bool Renderer::IsCellPotentiallyVisible(uint8_t x, uint8_t y)
+{
+	return visibleRooms[Map::GetRoomIndex(x, y)];
+}

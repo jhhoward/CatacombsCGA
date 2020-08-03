@@ -41,8 +41,7 @@ void ParticleSystem::Step()
 void ParticleSystem::Draw(int x, int halfScale)
 {
 	int scale = 2 * halfScale;
-	int8_t horizon = Renderer::GetHorizon(x);
-	uint8_t colour = isWhite ? COLOUR_WHITE : COLOUR_BLACK;
+	int8_t horizon = 20; //Renderer::GetHorizon(x);
 	
 	for(int n = 0; n < PARTICLES_PER_SYSTEM; n++)
 	{
@@ -54,10 +53,10 @@ void ParticleSystem::Draw(int x, int halfScale)
 
 			if (outX >= 0 && outY >= 0 && outX < DISPLAY_WIDTH - 1 && outY < DISPLAY_HEIGHT - 1 && halfScale >= Renderer::wBuffer[outX])
 			{
-				Platform::PutPixel(outX, outY, colour);
-				Platform::PutPixel(outX + 1, outY, colour);
-				Platform::PutPixel(outX + 1, outY + 1, colour);
-				Platform::PutPixel(outX, outY + 1, colour);
+				Platform::PutPixel(outX, outY, p.colour);
+				//Platform::PutPixel(outX + 1, outY, colour);
+				//Platform::PutPixel(outX + 1, outY + 1, colour);
+				//Platform::PutPixel(outX, outY + 1, colour);
 			}
 		}
 	}
@@ -123,7 +122,7 @@ void ParticleSystemManager::Update()
 	}	
 }
 
-void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY, bool isWhite)
+void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY, uint8_t primaryColour, uint8_t secondaryColour)
 {
 	ParticleSystem* newSystem = nullptr;
 	for (int n = 0; n < MAX_PARTICLE_SYSTEMS; n++)
@@ -149,8 +148,16 @@ void ParticleSystemManager::CreateExplosion(int16_t worldX, int16_t worldY, bool
 		}
 	}
 
+	if (secondaryColour == 0xff)
+		secondaryColour = primaryColour;
+
 	newSystem->worldX = worldX;
 	newSystem->worldY = worldY;
-	newSystem->isWhite = isWhite;
 	newSystem->Explode();
+
+	for (uint8_t n = 0; n < PARTICLES_PER_SYSTEM; n += 2)
+	{
+		newSystem->particles[n].colour = primaryColour;
+		newSystem->particles[n + 1].colour = secondaryColour;
+	}
 }

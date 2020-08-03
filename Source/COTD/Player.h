@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include "Entity.h"
+#include "FixedMath.h"
 
 #define PLAYER_MAX_HP 100
 #define PLAYER_MAX_MANA 100
@@ -15,7 +16,7 @@
 class Player : public Entity
 {
 public:
-	uint8_t angle;
+	angle_t angle;
 	int16_t velocityX, velocityY;
 	int8_t angularVelocity;
 

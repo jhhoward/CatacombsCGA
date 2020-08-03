@@ -22,14 +22,15 @@
 #define FIXED_ANGLE_270 (FIXED_ANGLE_90 * 3)
 #define FIXED_ANGLE_TO_RADIANS(x) ((x) * (2.0f * 3.141592654f / FIXED_ANGLE_MAX))
 
+typedef uint8_t angle_t;
 extern const int16_t sinTable[FIXED_ANGLE_MAX];
 
-inline int16_t FixedSin(uint8_t angle)
+inline int16_t FixedSin(angle_t angle)
 {
 	return sinTable[angle];
 }
 
-inline int16_t FixedCos(uint8_t angle)
+inline int16_t FixedCos(angle_t angle)
 {
 	return sinTable[FIXED_ANGLE_WRAP(FIXED_ANGLE_90 - angle)];
 }

@@ -12,6 +12,7 @@ struct Particle
 {
 	int8_t x, y;
 	int8_t velX, velY;
+	uint8_t colour;
 
 	inline bool IsActive() { return x != -128; }
 };
@@ -19,8 +20,7 @@ struct Particle
 struct ParticleSystem
 {
 	int16_t worldX, worldY;
-	bool isWhite : 1;
-	uint8_t life : 7;
+	uint8_t life;
 	Particle particles[PARTICLES_PER_SYSTEM];
 	
 	bool IsActive() { return life > 0; }
@@ -39,5 +39,5 @@ public:
 	static void Init();
 	static void Draw();
 	static void Update();
-	static void CreateExplosion(int16_t x, int16_t y, bool isWhite = false);
+	static void CreateExplosion(int16_t x, int16_t y, uint8_t primaryColour, uint8_t secondaryColour = 0xff);
 };

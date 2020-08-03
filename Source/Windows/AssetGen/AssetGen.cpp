@@ -590,6 +590,130 @@ void GenerateWeaponRoutine(ofstream& output, const char* routineName, const char
 	output << "}" << endl;
 }
 
+void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* routineName, const char* sourceImagePath)
+{
+	vector<unsigned char> palettedImage;
+	unsigned int width, height;
+
+	if (!LoadPNGAsPaletted(sourceImagePath, palettedImage, width, height))
+	{
+		return;
+	}
+
+	typeOutput << "void far Draw" << routineName << "(unsigned char far* p, unsigned char x, unsigned char s);" << endl;
+
+	output << "void far Draw" << routineName << "(unsigned char far* p, unsigned char x, unsigned char s) {" << endl;
+	output << " switch(s) {" << endl;
+
+	for (int s = 1; s < 20; s++)
+	{
+		vector<unsigned char> scaledSprRaw;
+		for (int y = 0; y < s * 2; y++)
+		{
+			int v = (y * height) / (s * 2);
+			if (v >= height)
+				v = height - 1;
+
+			for (int x = 0; x < s * 2; x++)
+			{
+				int u = (x * width) / (s * 2);
+				if (u >= width)
+					u = width - 1;
+				scaledSprRaw.push_back(palettedImage[v * width + u]);
+			}
+		}
+
+		vector<unsigned char> scaledSpr;
+		unsigned char outlineCol = 0;
+
+		for (int y = 0; y < s * 2; y++)
+		{
+			for (int x = 0; x < s * 2; x++)
+			{
+				unsigned char col = scaledSprRaw[y * s * 2 + x];
+				if (col == 0xff)
+				{
+					if (x > 0 && scaledSprRaw[y * s * 2 + x - 1] != 0xff)
+					{
+						col = outlineCol;
+					}
+					else if (x < s * 2 - 1 && scaledSprRaw[y * s * 2 + x + 1] != 0xff)
+					{
+						col = outlineCol;
+					}
+					else if (y > 0 && scaledSprRaw[(y - 1) * s * 2 + x] != 0xff)
+					{
+						col = outlineCol;
+					}
+					else if (y < s * 2 - 1 && scaledSprRaw[(y + 1) * s * 2 + x] != 0xff)
+					{
+						col = outlineCol;
+					}
+				}
+				else if (x == 0 || y == 0 || x == s * 2 - 1 || y == s * 2 - 1)
+				{
+					col = outlineCol;
+				}
+
+				scaledSpr.push_back(col);
+			}
+		}
+
+
+		output << "  case " << s << ":" << endl;
+		output << "  switch(x) {" << endl;
+
+		for (int x = 0; x < s * 2; x++)
+		{
+			output << "   case " << x << ": ";
+
+			int outAddress = (10 - s / 2) * 160;
+
+			for (int y = 0; y < s * 2; y++)
+			{
+				unsigned char upper = scaledSpr[y * s * 2 + x];
+				y++;
+				unsigned char lower = scaledSpr[y * s * 2 + x];
+
+				if (outAddress >= 0)
+				{
+					if (upper != 0xff && lower != 0xff)
+					{
+						int combined = (upper | (lower << 4)) & 0xff;
+						output << "p[" << outAddress << "]=" << combined << ";";
+					}
+					else if (upper != 0xff)
+					{
+						output << "p[" << outAddress << "]=(p[" << outAddress << "]&0xf0)|" << (int)upper << ";";
+					}
+					else if (lower != 0xff)
+					{
+						output << "p[" << outAddress << "]=(p[" << outAddress << "]&0x0f)|" << (int)(lower << 4) << ";";
+					}
+				}
+
+				outAddress += 160;
+
+				if (outAddress >= 20 * 160)
+				{
+					break;
+				}
+			}
+
+			output << " break;" << endl;
+		}
+
+		output << "  }" << endl;
+		output << "  break;" << endl;
+	}
+
+	output << " }" << endl;
+	output << "}" << endl;
+	output << endl;
+
+}
+
+
 void GenerateSinTable()
 {
 	FILE* fs;
@@ -672,6 +796,17 @@ int main(int argc, char* argv[])
 	GenerateWeaponRoutine(drawRoutinesFile, "Hand2", "Images/hand2c.png");
 	drawRoutinesFile.close();
 
+	ofstream dataFile;
+	ofstream typeFile;
+	typeFile.open(spriteTypesHeaderOutputPath);
+	dataFile.open(spriteDataHeaderOutputPath);
+
+	typeFile << "#pragma once" << endl << endl;
+
+	GenerateSpriteRoutine(dataFile, typeFile, "Torch1", "Images/torch1c.png");
+	GenerateSpriteRoutine(dataFile, typeFile, "PlayerProjectile", "Images/fireball2c.png");
+	GenerateSpriteRoutine(dataFile, typeFile, "Enemy", "Images/enemyc.png");
+	dataFile.close();
 
 	return 0;
 }

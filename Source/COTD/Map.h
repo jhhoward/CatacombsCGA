@@ -91,14 +91,17 @@ class Room
 public:
 	int numVertices;
 	int numWalls;
+	int numTorches;
 	Vertex vertices[MAX_ROOM_VERTICES];
 	WallSegment walls[MAX_ROOM_WALLS];
+	Vertex torches[MAX_ROOM_TORCHES];
 
 #if WITH_DOORS
 	Door door;
 #endif
 
 	void AddWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t colour, uint8_t connectedRoomIndex = 0);
+	void AddTorch(int16_t x, int16_t y);
 };
 
 class Map

@@ -5,7 +5,7 @@
 #include "FixedMath.h"
 #include "Game.h"
 #include "Projectile.h"
-//#include "Generated/SpriteTypes.h"
+#include "Generated/SpriteTypes.h"
 #include "Sounds.h"
 #include "Platform.h"
 #include "Particle.h"
@@ -16,7 +16,7 @@ const EnemyArchetype Enemy::archetypes[NumEnemyTypes] =
 {
 	{
 		// Skeleton
-		nullptr, //skeletonSpriteData,
+		DrawEnemy,			// draw routine
 		50,					// hp
 		4,					// speed
 		20,					// attackStrength
@@ -28,7 +28,7 @@ const EnemyArchetype Enemy::archetypes[NumEnemyTypes] =
 	},
 	{
 		// Mage
-		nullptr, //mageSpriteData,
+		DrawEnemy,			// draw routine
 		30,					// hp
 		5,					// speed
 		20,					// attackStrength
@@ -40,7 +40,7 @@ const EnemyArchetype Enemy::archetypes[NumEnemyTypes] =
 	},
 	{
 		// Bat
-		nullptr, //batSpriteData,
+		DrawEnemy,			// draw routine
 		20,					// hp
 		7,					// speed
 		10,					// attackStrength
@@ -52,7 +52,7 @@ const EnemyArchetype Enemy::archetypes[NumEnemyTypes] =
 	},
 	{
 		// Spider
-		nullptr, //spiderSpriteData,
+		DrawEnemy,			// draw routine
 		10,					// hp
 		7,					// speed
 		5,					// attackStrength
@@ -83,7 +83,7 @@ void Enemy::Damage(uint8_t amount)
 		Game::stats.enemyKills[(int)type]++;
 		type = ET_None;
 		Platform::PlaySound(Sounds::Kill);
-		ParticleSystemManager::CreateExplosion(x, y, true);
+		ParticleSystemManager::CreateExplosion(x, y, 4, 8);
 	}
 	else
 	{
@@ -253,7 +253,7 @@ bool Enemy::TryMove()
 	return true;	
 }
 
-bool Enemy::FireProjectile(uint8_t angle)
+bool Enemy::FireProjectile(angle_t angle)
 {
 	return ProjectileManager::FireProjectile(this, x, y, angle) != nullptr;
 }
@@ -316,7 +316,18 @@ bool Enemy::ShouldFireProjectile() const
 	uint8_t distance = GetPlayerCellDistance();
 	uint8_t chance = 16 / (distance > 0 ? distance : 1);
 
-	return GetArchetype()->GetIsRanged() && (Random() & 0xff) < chance && Map::IsClearLine(x, y, Game::player.x, Game::player.y);
+	return GetArchetype()->GetIsRanged() && (Random() & 0xff) < chance && CanSeePlayer(); // Map::IsClearLine(x, y, Game::player.x, Game::player.y);
+}
+
+bool Enemy::CanSeePlayer() const
+{
+	// Mechanism to split checks across 16 frames depending on cell x
+	uint8_t frame = (uint8_t)(x >> 8) & 0xf;
+	if ((Game::globalTickFrame & 0xf) == frame)
+	{
+		return Map::IsClearLine(x, y, Game::player.x, Game::player.y);
+	}
+	return false;
 }
 
 void Enemy::Tick()
@@ -338,7 +349,7 @@ void Enemy::Tick()
 	switch (state)
 	{
 	case ES_Idle:
-		if (Map::IsClearLine(x, y, Game::player.x, Game::player.y))
+		if (CanSeePlayer()) //Map::IsClearLine(x, y, Game::player.x, Game::player.y))
 		{
 			Platform::PlaySound(Sounds::SpotPlayer);
 			state = ES_Moving;
@@ -381,6 +392,8 @@ void EnemyManager::Update()
 		Enemy& enemy = enemies[n];
 		if(enemy.IsValid())
 		{
+			if (!Renderer::IsCellPotentiallyVisible(enemy.x >> 8, enemy.y >> 8))
+				continue;
 			enemy.Tick();
 		}
 	}
@@ -393,11 +406,14 @@ void EnemyManager::Draw()
 		Enemy& enemy = enemies[n];
 		if(enemy.IsValid())
 		{
+			if (!Renderer::IsCellPotentiallyVisible(enemy.x >> 8, enemy.y >> 8))
+				continue;
+
 			bool invert = enemy.GetState() == ES_Stunned && (Renderer::globalRenderFrame & 1);
 			int frameOffset = (enemy.GetType() == ET_Bat || enemy.GetState() == ES_Moving) && (Game::globalTickFrame & 8) == 0 ? 32 : 0;
 
 			const EnemyArchetype* archetype = enemy.GetArchetype();
-			Renderer::DrawObject(archetype->GetSpriteData() + frameOffset, enemy.x, enemy.y, archetype->GetSpriteScale(), invert);
+			Renderer::DrawObject(archetype->drawRoutine, enemy.x, enemy.y, 128 /*archetype->GetSpriteScale()*/, invert);
 		}
 	}
 }

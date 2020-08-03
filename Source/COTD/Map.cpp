@@ -203,42 +203,65 @@ void Map::GenerateRoomStructure()
 		for (int x = 0; x < MAP_WIDTH; x++)
 		{
 			uint8_t index = roomIndex[y * MAP_WIDTH + x];
-			if (index != 0 && GetCell(x, y) != CT_BrickWall)
+			if (index != 0)
 			{
 				Room& room = rooms[index];
-				if (GetCellSafe(x - 1, y) == CT_BrickWall)
+				if (GetCell(x, y) != CT_BrickWall)
 				{
-					room.AddWall(x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE, verticalColour);
-				}
-				if (GetCellSafe(x, y - 1) == CT_BrickWall)
-				{
-					room.AddWall(x * CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, horizontalColour);
-				}
-				if (GetCellSafe(x + 1, y) == CT_BrickWall)
-				{
-					room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, verticalColour);
-				}
-				if (GetCellSafe(x, y + 1) == CT_BrickWall)
-				{
-					room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, horizontalColour);
+					if (GetCellSafe(x - 1, y) == CT_BrickWall)
+					{
+						room.AddWall(x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE, verticalColour);
+					}
+					if (GetCellSafe(x, y - 1) == CT_BrickWall)
+					{
+						room.AddWall(x * CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, horizontalColour);
+					}
+					if (GetCellSafe(x + 1, y) == CT_BrickWall)
+					{
+						room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, verticalColour);
+					}
+					if (GetCellSafe(x, y + 1) == CT_BrickWall)
+					{
+						room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, horizontalColour);
+					}
+
+					uint8_t portalColour = 0;// (room.numWalls & 0xf);
+					if (x > 0 && GetCell(x - 1, y) != CT_BrickWall && GetRoomIndex(x - 1, y) != index)
+					{
+						room.AddWall(x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE, portalColour, GetRoomIndex(x - 1, y));
+					}
+					if (y > 0 && GetCell(x, y - 1) != CT_BrickWall && GetRoomIndex(x, y - 1) != index)
+					{
+						room.AddWall(x * CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, portalColour, GetRoomIndex(x, y - 1));
+					}
+					if (x < MAP_WIDTH - 1 && GetCell(x + 1, y) != CT_BrickWall && GetRoomIndex(x + 1, y) != index)
+					{
+						room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, portalColour, GetRoomIndex(x + 1, y));
+					}
+					if (y < MAP_HEIGHT - 1 && GetCell(x, y + 1) != CT_BrickWall && GetRoomIndex(x, y + 1) != index)
+					{
+						room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, portalColour, GetRoomIndex(x, y + 1));
+					}
 				}
 
-				uint8_t portalColour = 0;// (room.numWalls & 0xf);
-				if (x > 0 && GetCell(x - 1, y) != CT_BrickWall && GetRoomIndex(x - 1, y) != index)
+				if (GetCell(x, y) == CT_Torch)
 				{
-					room.AddWall(x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE, portalColour, GetRoomIndex(x - 1, y));
-				}
-				if (y > 0 && GetCell(x, y - 1) != CT_BrickWall && GetRoomIndex(x, y - 1) != index)
-				{
-					room.AddWall(x * CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, portalColour, GetRoomIndex(x, y - 1));
-				}
-				if (x < MAP_WIDTH - 1 && GetCell(x + 1, y) != CT_BrickWall && GetRoomIndex(x + 1, y) != index)
-				{
-					room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE, x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, portalColour, GetRoomIndex(x + 1, y));
-				}
-				if (y < MAP_HEIGHT - 1 && GetCell(x, y + 1) != CT_BrickWall && GetRoomIndex(x, y + 1) != index)
-				{
-					room.AddWall(x * CELL_SIZE + CELL_SIZE, y * CELL_SIZE + CELL_SIZE, x * CELL_SIZE, y * CELL_SIZE + CELL_SIZE, portalColour, GetRoomIndex(x, y + 1));
+					if (Map::IsSolid(x - 1, y))
+					{
+						room.AddTorch(x * CELL_SIZE + CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2);
+					}
+					else if (Map::IsSolid(x + 1, y))
+					{
+						room.AddTorch(x * CELL_SIZE + 6 * CELL_SIZE / 7, y * CELL_SIZE + CELL_SIZE / 2);
+					}
+					else if (Map::IsSolid(x, y - 1))
+					{
+						room.AddTorch(x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 7);
+					}
+					else if (Map::IsSolid(x, y + 1))
+					{
+						room.AddTorch(x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + 6 * CELL_SIZE / 7);
+					}
 				}
 			}
 		}
@@ -354,6 +377,16 @@ void Room::AddWall(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t colou
 
 	walls[numWalls].Set(vertA, vertB, connectedRoomIndex, colour);
 	numWalls++;
+}
+
+void Room::AddTorch(int16_t x, int16_t y)
+{
+	if (numTorches < MAX_ROOM_TORCHES)
+	{
+		torches[numTorches].x = x;
+		torches[numTorches].y = y;
+		numTorches++;
+	}
 }
 
 #if WITH_DOORS

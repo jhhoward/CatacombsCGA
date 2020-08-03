@@ -24,6 +24,8 @@
 #define DISPLAY_HEIGHT 50
 
 typedef unsigned char far* backbuffer_t;
+typedef void (__far* drawRoutine_t)(unsigned char far* backBuffer, unsigned char x, unsigned char scale);
+
 #elif _WIN32
 #define DISPLAY_WIDTH 128
 #define DISPLAY_HEIGHT 64
@@ -66,5 +68,6 @@ typedef unsigned char far* backbuffer_t;
 #define MAX_ROOM_VERTICES 64
 #define MAX_ROOMS 64
 #define MAX_ROOM_WALLS 64
+#define MAX_ROOM_TORCHES 10
 
 #define WITH_DOORS 0

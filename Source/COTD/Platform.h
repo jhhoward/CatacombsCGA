@@ -25,5 +25,7 @@ public:
 	static void DrawVLine(uint8_t x, int8_t y1, int8_t y2, uint8_t pattern);
 	static void DrawBackground();
 
+	static long GetTime();
+
 	static void Log(const char* format, ...);
 };

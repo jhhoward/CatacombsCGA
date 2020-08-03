@@ -29,7 +29,7 @@ enum EnemyState
 
 struct EnemyArchetype
 {
-	const uint16_t* spriteData;
+	drawRoutine_t drawRoutine;
 
 	uint8_t hp;
 	uint8_t movementSpeed;
@@ -39,7 +39,6 @@ struct EnemyArchetype
 	uint8_t isRanged;
 	uint8_t spriteScale;
 
-	uint16_t* GetSpriteData() const		{ return (uint16_t*) spriteData; }
 	uint8_t GetHP() const				{ return hp; }
 	uint8_t GetMovementSpeed() const	{ return movementSpeed; }
 	uint8_t GetAttackStrength() const	{ return attackStrength; }
@@ -64,8 +63,10 @@ public:
 private:
 	static const EnemyArchetype archetypes[NumEnemyTypes];
 
+	bool CanSeePlayer() const;
+
 	bool ShouldFireProjectile() const;
-	bool FireProjectile(uint8_t angle);
+	bool FireProjectile(angle_t angle);
 	bool TryMove();
 	void StunMove();
 	bool TryFireProjectile();
@@ -74,9 +75,9 @@ private:
 	bool TryPickCell(int8_t newX, int8_t newY);
 	uint8_t GetPlayerCellDistance() const;
 
-	EnemyType type : 3;
-	EnemyState state : 3;
-	uint8_t frameDelay : 2;
+	EnemyType type;
+	EnemyState state;
+	uint8_t frameDelay;
 	uint8_t hp;
 	uint8_t targetCellX, targetCellY;
 };

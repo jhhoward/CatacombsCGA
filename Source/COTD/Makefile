@@ -2,7 +2,7 @@ obj = Main.obj Draw.obj Enemy.obj Entity.obj FixedMath.obj Game.obj MapGenerator
 bin = COTD.exe
 
 CC = wpp
-CFLAGS = -zq -0 -ot -bt=DOS -w2
+CFLAGS = -zq -0 -ot -bt=DOS -w2 -mm
 LD = wlink
 
 $(bin): $(obj)

@@ -266,7 +266,7 @@ bool Player::CheckCollisions()
 	{
 	case CT_Chest:
 		Map::SetCell(lookAheadCellX, lookAheadCellY, CT_ChestOpened);
-		ParticleSystemManager::CreateExplosion(lookAheadX, lookAheadY, true);
+		ParticleSystemManager::CreateExplosion(lookAheadX, lookAheadY, 14);
 		Platform::PlaySound(Sounds::Pickup);
 		Game::ShowMessage(PSTR("Found a chest full of treasure!"));
 		Game::stats.chestsOpened++;

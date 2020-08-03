@@ -11,6 +11,7 @@
 #include "Enemy.h"
 #include "Menu.h"
 #include "DOSLib.h"
+#include "Profiler.h"
 
 Player Game::player;
 const char* Game::displayMessage = nullptr;
@@ -89,6 +90,8 @@ void Game::StartLevel()
 
 void Game::Draw(backbuffer_t backBuffer)
 {
+	PROFILE_SECTION(Draw);
+
 	switch(state)
 	{
 		case GS_Menu:
@@ -121,13 +124,14 @@ void Game::TickInGame()
 	}
 
 	player.Tick();
-	Map::Tick();
 
-#if 0
+#if WITH_DOORS
+	Map::Tick();
+#endif
+
 	ProjectileManager::Update();
 	ParticleSystemManager::Update();
 	EnemyManager::Update();
-#endif
 
 	if (Map::GetCellSafe(player.x / CELL_SIZE, player.y / CELL_SIZE) == CT_Exit)
 	{

@@ -3,8 +3,11 @@
 #include "Platform.h"
 #include "DOSLib.h"
 #include "Game.h"
+#include "Profiler.h"
 
 static uint8_t inputState = 0;
+
+unsigned long Profiler::timerValue[NumProfilerSectionTypes];
 
 uint8_t Platform::GetInput(void)
 {
@@ -14,6 +17,11 @@ uint8_t Platform::GetInput(void)
 void Platform::PlaySound(const uint16_t* audioPattern)
 {
 
+}
+
+long Platform::GetTime()
+{
+	return DOSLib::GetTime();
 }
 
 bool Platform::IsAudioEnabled()
@@ -38,7 +46,24 @@ void Platform::FillScreen(uint8_t col)
 
 void Platform::PutPixel(uint8_t x, uint8_t y, uint8_t colour)
 {
+	backbuffer_t backBuffer = DOSLib::backBuffer;
+	uint8_t row = y >> 1;
+	//backBuffer += (row << 6) + (row << 4) + x * 2 + 1;
+	int offset = (((row << 6) + (row << 4) + x) << 1) + 1;
 
+	if (offset > (160 * 20))
+		return;
+
+	backBuffer += offset;
+
+	if (y & 1)
+	{
+		*backBuffer = (*backBuffer & 0xf) | (colour << 4);
+	}
+	else
+	{
+		*backBuffer = (*backBuffer & 0xf0) | (colour);
+	}
 }
 
 void Platform::DrawBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
@@ -280,35 +305,50 @@ int main()
 
 	while (1)
 	{
+#if WITH_PROFILER
+		Profiler::ResetTimers();
+#endif
+
 		unsigned long timingSample = DOSLib::GetTime();
 		int framesSimulated = 0;
 		tickAccum += (timingSample - lastTimingSample);
 		lastTimingSample = timingSample;
 
-		while (tickAccum > frameDuration)
+		if (DOSLib::normalKeys[0x14])
 		{
-			inputState = 0;
+			tickAccum = 0;
+			framesSimulated = 1;
+		}
 
-			if (DOSLib::normalKeys[0x48] || DOSLib::extendedKeys[0x48])
-				inputState |= INPUT_UP;
-			if (DOSLib::normalKeys[0x4b] || DOSLib::extendedKeys[0x4b])
-				inputState |= INPUT_LEFT;
-			if (DOSLib::normalKeys[0x4d] || DOSLib::extendedKeys[0x4d])
-				inputState |= INPUT_RIGHT;
-			if (DOSLib::normalKeys[0x50] || DOSLib::extendedKeys[0x50])
-				inputState |= INPUT_DOWN;
-			if (DOSLib::normalKeys[0x1d] || DOSLib::extendedKeys[0x1d])		// Ctrl
-				inputState |= INPUT_B;
-			if (DOSLib::normalKeys[0x38] || DOSLib::extendedKeys[0x38])		// Alt
-				inputState |= INPUT_A;
+		if (tickAccum > frameDuration)
+		{
+			PROFILE_SECTION(Tick);
 
-			Game::Tick();
-			tickAccum -= frameDuration;
-			framesSimulated++;
-
-			if (framesSimulated > maxFrameSkip)
+			while (tickAccum > frameDuration)
 			{
-				tickAccum = 0;
+				inputState = 0;
+
+				if (DOSLib::normalKeys[0x48] || DOSLib::extendedKeys[0x48])
+					inputState |= INPUT_UP;
+				if (DOSLib::normalKeys[0x4b] || DOSLib::extendedKeys[0x4b])
+					inputState |= INPUT_LEFT;
+				if (DOSLib::normalKeys[0x4d] || DOSLib::extendedKeys[0x4d])
+					inputState |= INPUT_RIGHT;
+				if (DOSLib::normalKeys[0x50] || DOSLib::extendedKeys[0x50])
+					inputState |= INPUT_DOWN;
+				if (DOSLib::normalKeys[0x1d] || DOSLib::extendedKeys[0x1d])		// Ctrl
+					inputState |= INPUT_B;
+				if (DOSLib::normalKeys[0x38] || DOSLib::extendedKeys[0x38])		// Alt
+					inputState |= INPUT_A;
+
+				Game::Tick();
+				tickAccum -= frameDuration;
+				framesSimulated++;
+
+				if (framesSimulated > maxFrameSkip)
+				{
+					tickAccum = 0;
+				}
 			}
 		}
 
@@ -330,6 +370,22 @@ int main()
 			Platform::DrawString(DOSLib::backBuffer, fpsMessage, 0, 24, 0x0f);
 			Platform::DrawString(DOSLib::frontBuffer, fpsMessage, 0, 24, 0x0f);
 		}
+
+#if WITH_PROFILER
+		{
+			static char profileStr[80];
+			sprintf(profileStr, "Draw: %3ld Tick: %3ld PlotWall: %3ld BlitWall: %3ld Spr: %3ld Por: %3ld         ",
+				Profiler::timerValue[Profile_Draw],
+				Profiler::timerValue[Profile_Tick],
+				Profiler::timerValue[Profile_PlotWall],
+				Profiler::timerValue[Profile_BlitWall],
+				Profiler::timerValue[Profile_BlitSprite],
+				Profiler::timerValue[Profile_CalcPortal]
+				);
+			Platform::DrawString(DOSLib::backBuffer, profileStr, 0, 23, 0x0f);
+			Platform::DrawString(DOSLib::frontBuffer, profileStr, 0, 23, 0x0f);
+		}
+#endif
 
 		if (DOSLib::normalKeys[1])	// Escape
 		{

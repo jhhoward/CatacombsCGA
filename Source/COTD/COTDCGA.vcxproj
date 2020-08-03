@@ -110,6 +110,7 @@
     <ClInclude Include="Particle.h" />
     <ClInclude Include="Platform.h" />
     <ClInclude Include="Player.h" />
+    <ClInclude Include="Profiler.h" />
     <ClInclude Include="Projectile.h" />
     <ClInclude Include="Sounds.h" />
     <ClInclude Include="Textures.h" />
