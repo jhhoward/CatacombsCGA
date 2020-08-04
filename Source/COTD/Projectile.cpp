@@ -70,8 +70,8 @@ void ProjectileManager::Update()
 
 			if (Map::IsBlockedAtWorldPosition(p.x, p.y))
 			{
-				uint8_t cellX = p.x / CELL_SIZE;
-				uint8_t cellY = p.y / CELL_SIZE;
+				uint8_t cellX = p.cellX;
+				uint8_t cellY = p.cellY;
 
 				if (Map::GetCellSafe(cellX, cellY) == CT_Urn)
 				{

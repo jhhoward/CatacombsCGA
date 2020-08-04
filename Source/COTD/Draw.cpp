@@ -55,7 +55,21 @@ void inline Renderer::DrawWallSegment(RoomDrawContext& context, int16_t x1, int1
 
 	if (x1 < context.clipLeft)
 	{
+#if USE_LOW_PRECISION_RENDERING
+		int16_t xClipDiff = context.clipLeft - x1;
+		int16_t xDiff = x2 - x1;
+		int16_t wDiff = w2 - w1;
+
+		while (xClipDiff > 128)
+		{
+			// Drop precision to avoid overflow
+			xClipDiff >>= 1;
+			xDiff >>= 1;
+		}
+		w1 += (xClipDiff * wDiff) / xDiff;
+#else
 		w1 += ((int32_t)(context.clipLeft - x1) * (int32_t)(w2 - w1)) / (x2 - x1);
+#endif
 		x1 = context.clipLeft;
 	}
 
@@ -129,27 +143,33 @@ inline bool Renderer::isFrustrumClipped(int16_t x, int16_t y)
 
 inline void Renderer::TransformToViewSpace(int16_t x, int16_t y, int16_t& outX, int16_t& outY)
 {
-	//if (DOSLib::normalKeys[0x1c])
-	{
-		int32_t relX = x - camera.x;
-		int32_t relY = y - camera.y;
-		outY = (int16_t)((camera.rotCos * relX) >> 8) - (int16_t)((camera.rotSin * relY) >> 8);
-		outX = (int16_t)((camera.rotSin * relX) >> 8) + (int16_t)((camera.rotCos * relY) >> 8);
-	}
-	/*else
-	{
-		int16_t relX = x - camera.x;
-		int16_t relY = y - camera.y;
-		outY = (int16_t)(((camera.rotCos) * (relX >> 5)) >> 3) - (int16_t)(((camera.rotSin) * (relY >> 5)) >> 3);
-		outX = (int16_t)(((camera.rotSin) * (relX >> 5)) >> 3) + (int16_t)(((camera.rotCos) * (relY >> 5)) >> 3);
-	}*/
+#if USE_LOW_PRECISION_RENDERING
+	int16_t relX = (x - camera.x) >> RENDER_PRECISION_SHIFT;
+	int16_t relY = (y - camera.y) >> RENDER_PRECISION_SHIFT;
+	outY = (int16_t)((camera.rotCos * relX) >> (8 - RENDER_ROTATION_PRECISION_SHIFT)) - (int16_t)((camera.rotSin * relY) >> (8 - RENDER_ROTATION_PRECISION_SHIFT));
+	outX = (int16_t)((camera.rotSin * relX) >> (8 - RENDER_ROTATION_PRECISION_SHIFT)) + (int16_t)((camera.rotCos * relY) >> (8 - RENDER_ROTATION_PRECISION_SHIFT));
+#else
+	int32_t relX = x - camera.x;
+	int32_t relY = y - camera.y;
+	outY = (int16_t)((camera.rotCos * relX) >> 8) - (int16_t)((camera.rotSin * relY) >> 8);
+	outX = (int16_t)((camera.rotSin * relX) >> 8) + (int16_t)((camera.rotCos * relY) >> 8);
+#endif
 }
 
 inline void Renderer::TransformToScreenSpace(int16_t viewX, int16_t viewZ, int16_t& outX, int16_t& outW)
 {
 	// apply perspective projection
+#if USE_LOW_PRECISION_RENDERING
+	outX = (viewX * NEAR_PLANE * CAMERA_SCALE / viewZ);
+#else
 	outX = (int16_t)((int32_t)viewX * NEAR_PLANE * CAMERA_SCALE / viewZ);
+#endif
+
+#if USE_LOW_PRECISION_RENDERING
+	outW = (int16_t)((CELL_SIZE / (2 << RENDER_PRECISION_SHIFT) * NEAR_PLANE * CAMERA_SCALE) / viewZ);
+#else
 	outW = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ);
+#endif
 
 	// transform into screen space
 	outX = (int16_t)((DISPLAY_WIDTH / 2) + outX);
@@ -633,18 +653,33 @@ inline void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16
 	if (viewZ1 < CLIP_PLANE)
 	{
 		leftEdgeVisible = false;
+
+#if USE_LOW_PRECISION_RENDERING
+		viewX1 += (CLIP_PLANE - viewZ1) * (viewX2 - viewX1) / (viewZ2 - viewZ1);
+#else
 		viewX1 += (int32_t)(CLIP_PLANE - viewZ1) * (int32_t)(viewX2 - viewX1) / (int32_t)(viewZ2 - viewZ1);
+#endif
+
 		viewZ1 = CLIP_PLANE;
 	}
 	else if (viewZ2 < CLIP_PLANE)
 	{
+#if USE_LOW_PRECISION_RENDERING
+		viewX2 += (CLIP_PLANE - viewZ2) * (viewX1 - viewX2) / (viewZ1 - viewZ2);
+#else
 		viewX2 += (int32_t)(CLIP_PLANE - viewZ2) * (int32_t)(viewX1 - viewX2) / (int32_t)(viewZ1 - viewZ2);
+#endif
 		viewZ2 = CLIP_PLANE;
 	}
 
 	// apply perspective projection
+#if USE_LOW_PRECISION_RENDERING
+	vx1 = (viewX1 * NEAR_PLANE * CAMERA_SCALE / viewZ1);
+	vx2 = (viewX2 * NEAR_PLANE * CAMERA_SCALE / viewZ2);
+#else
 	vx1 = (int16_t)((int32_t)viewX1 * NEAR_PLANE * CAMERA_SCALE / viewZ1);
 	vx2 = (int16_t)((int32_t)viewX2 * NEAR_PLANE * CAMERA_SCALE / viewZ2);
+#endif
 
 	// transform the end points into screen space
 	sx1 = (int16_t)((DISPLAY_WIDTH / 2) + vx1);
@@ -653,8 +688,13 @@ inline void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16
 	if (sx1 >= sx2 || sx2 <= context.clipLeft || sx1 >= context.clipRight)
 		return;
 
+#if USE_LOW_PRECISION_RENDERING
+	w1 = (int16_t)((CELL_SIZE / (2 << RENDER_PRECISION_SHIFT) * NEAR_PLANE * CAMERA_SCALE) / viewZ1);
+	w2 = (int16_t)((CELL_SIZE / (2 << RENDER_PRECISION_SHIFT) * NEAR_PLANE * CAMERA_SCALE) / viewZ2);
+#else
 	w1 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ1);
 	w2 = (int16_t)((CELL_SIZE / 2 * NEAR_PLANE * CAMERA_SCALE) / viewZ2);
+#endif
 
 	currentWallId++;
 	DrawWallSegment(context, sx1, w1, sx2, w2, colour);
@@ -677,7 +717,11 @@ inline void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16
 			// apply perspective projection
 			int16_t dvx;
 
+#if USE_LOW_PRECISION_RENDERING
+			dvx = (detailX * NEAR_PLANE * CAMERA_SCALE / detailZ);
+#else
 			dvx = (int16_t)((int32_t)detailX * NEAR_PLANE * CAMERA_SCALE / detailZ);
+#endif
 
 			// transform the end points into screen space
 			int16_t dsx = (int16_t)((DISPLAY_WIDTH / 2) + dvx);
@@ -790,7 +834,11 @@ inline bool Renderer::IsPortalVisible(RoomDrawContext& context, int16_t viewX1, 
 	}
 	else
 	{
+#if USE_LOW_PRECISION_RENDERING
+		vx1 = viewX1 * NEAR_PLANE * CAMERA_SCALE / viewZ1;
+#else
 		vx1 = (int16_t)((int32_t)viewX1 * NEAR_PLANE * CAMERA_SCALE / viewZ1);
+#endif
 
 		// transform the end points into screen space
 		sx1 = (int16_t)((DISPLAY_WIDTH / 2) + vx1) - 1;
@@ -802,7 +850,11 @@ inline bool Renderer::IsPortalVisible(RoomDrawContext& context, int16_t viewX1, 
 	}
 	else
 	{
+#if USE_LOW_PRECISION_RENDERING
+		vx2 = viewX2 * NEAR_PLANE * CAMERA_SCALE / viewZ2;
+#else
 		vx2 = (int16_t)((int32_t)viewX2 * NEAR_PLANE * CAMERA_SCALE / viewZ2);
+#endif
 
 		// transform the end points into screen space
 		sx2 = (int16_t)((DISPLAY_WIDTH / 2) + vx2) + 1;
@@ -945,13 +997,13 @@ void Renderer::DrawGeometry(backbuffer_t backBuffer)
 		RoomDrawContext& context = roomsToDraw[r];
 		Room& room = Map::GetRoom(context.roomIndex);
 
-		for (int n = 0; n < room.numVertices; n++)
 		{
-			//TransformToViewSpace(room.vertices[n].x, room.vertices[n].y, viewSpaceVertices[n].x, viewSpaceVertices[n].y);
-			int32_t relX = room.vertices[n].x - camera.x;
-			int32_t relY = room.vertices[n].y - camera.y;
-			viewSpaceVertices[n].y = (int16_t)((camera.rotCos * relX) >> 8) - (int16_t)((camera.rotSin * relY) >> 8);
-			viewSpaceVertices[n].x = (int16_t)((camera.rotSin * relX) >> 8) + (int16_t)((camera.rotCos * relY) >> 8);
+			PROFILE_SECTION(TransformVerts);
+
+			for (int n = 0; n < room.numVertices; n++)
+			{
+				TransformToViewSpace(room.vertices[n].x, room.vertices[n].y, viewSpaceVertices[n].x, viewSpaceVertices[n].y);
+			}
 		}
 
 		for (int n = 0; n < room.numWalls; n++)
@@ -1065,9 +1117,11 @@ void Renderer::DrawGeometry(backbuffer_t backBuffer)
 	}
 
 	//unsigned char far* backBuffer = (unsigned char far*) MK_FP(0xB800, 0); 
+#if 0
 	char strBuffer[80];
 	sprintf(strBuffer, "Rooms: %d Walls: %d Visible walls: %d       ", numRoomsToDraw, wallDrawCounter, visibleSegmentCounter);
 	Platform::DrawString(backBuffer, strBuffer, 0, 20, 0xf);
+#endif
 }
 
 #define UNROLL_8(CODE) CODE CODE CODE CODE CODE CODE CODE CODE
@@ -1096,24 +1150,24 @@ void Renderer::Render(backbuffer_t backBuffer, Player& player)
 		UNROLL_80(wBuffer[n++] = 1;)
 	}
 
-	//for (uint8_t n = 0; n < DISPLAY_WIDTH; n++)
-	//{
-	//	wBuffer[n] = 1;
-	//	//horizonBuffer[n] = HORIZON + (((DISPLAY_WIDTH / 2 - n) * camera.tilt) >> 8) + camera.bob;
-	//}
-
-	//camera.cellX = camera.x / CELL_SIZE;
-	//camera.cellY = camera.y / CELL_SIZE;
-
 	camera.rotCos = FixedCos(-camera.angle);
 	camera.rotSin = FixedSin(-camera.angle);
 	camera.clipCos = FixedCos(-camera.angle + CLIP_ANGLE);
 	camera.clipSin = FixedSin(-camera.angle + CLIP_ANGLE);
 
+#if USE_LOW_PRECISION_RENDERING
+	camera.rotCos >>= RENDER_ROTATION_PRECISION_SHIFT;
+	camera.rotSin >>= RENDER_ROTATION_PRECISION_SHIFT;
+#endif
+
 	DrawGeometry(backBuffer);
-	ProjectileManager::Draw();
-	EnemyManager::Draw();
-	ParticleSystemManager::Draw();
+
+	{
+		PROFILE_SECTION(DrawObjects);
+		ProjectileManager::Draw();
+		EnemyManager::Draw();
+		ParticleSystemManager::Draw();
+	}
 
 	/*
 	

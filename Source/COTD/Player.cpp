@@ -103,7 +103,7 @@ void Player::Tick()
 		angularVelocity--;
 	}
 
-	angle += angularVelocity >> 1;
+	angle = FIXED_ANGLE_WRAP(angle + (angularVelocity << 1));
 
 	if (input & INPUT_UP)
 	{
@@ -199,9 +199,6 @@ void Player::Tick()
 
 	if (damageTime > 0)
 		damageTime--;
-
-	uint8_t cellX = x / CELL_SIZE;
-	uint8_t cellY = y / CELL_SIZE;
 
 	switch (Map::GetCellSafe(cellX, cellY))
 	{

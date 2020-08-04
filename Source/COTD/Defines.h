@@ -47,13 +47,22 @@ typedef void (__far* drawRoutine_t)(unsigned char far* backBuffer, unsigned char
 #define COLOUR_WHITE 1
 #define COLOUR_BLACK 0
 
-#define FIXED_ANGLE_MAX 256
+#define USE_LOW_PRECISION_RENDERING 1
 
 #define CAMERA_SCALE 1
+
+#if USE_LOW_PRECISION_RENDERING
+#define RENDER_PRECISION_SHIFT 3
+#define RENDER_ROTATION_PRECISION_SHIFT 2
+#define CLIP_PLANE (32 >> RENDER_PRECISION_SHIFT)
+#else
 #define CLIP_PLANE 32
+#endif
 #define CLIP_ANGLE 32
+
 #define NEAR_PLANE_MULTIPLIER 130
 #define NEAR_PLANE (DISPLAY_WIDTH * NEAR_PLANE_MULTIPLIER / 256)
+
 #define HORIZON (DISPLAY_HEIGHT / 2)
 
 #define CELL_SIZE 256
@@ -71,3 +80,4 @@ typedef void (__far* drawRoutine_t)(unsigned char far* backBuffer, unsigned char
 #define MAX_ROOM_TORCHES 10
 
 #define WITH_DOORS 0
+

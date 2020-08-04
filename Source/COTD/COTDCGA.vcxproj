@@ -103,7 +103,6 @@
     <ClInclude Include="FixedMath.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="Images.inc.h" />
-    <ClInclude Include="LUT.h" />
     <ClInclude Include="Map.h" />
     <ClInclude Include="MapGenerator.h" />
     <ClInclude Include="Menu.h" />

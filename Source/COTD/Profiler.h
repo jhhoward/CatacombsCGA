@@ -3,7 +3,7 @@
 #include "Platform.h"
 #include <memory.h>
 
-#define WITH_PROFILER 1
+#define WITH_PROFILER 0
 
 #if WITH_PROFILER
 #define PROFILE_SECTION(SectionType) \
@@ -20,6 +20,8 @@ enum ProfilerSectionType
 	Profile_BlitWall,
 	Profile_BlitSprite,
 	Profile_CalcPortal,
+	Profile_DrawObjects,
+	Profile_TransformVerts,
 	NumProfilerSectionTypes
 };
 

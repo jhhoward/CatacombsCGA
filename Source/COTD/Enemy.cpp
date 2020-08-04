@@ -71,8 +71,8 @@ void Enemy::Init(EnemyType initType, int16_t initX, int16_t initY)
 	x = initX;
 	y = initY;
 	frameDelay = 0;
-	targetCellX = x / CELL_SIZE;
-	targetCellY = y / CELL_SIZE;
+	targetCellX = cellX;
+	targetCellY = cellY;
 	hp = GetArchetype()->GetHP();
 }
 
@@ -146,15 +146,15 @@ bool Enemy::TryPickCells(int8_t deltaX, int8_t deltaY)
 
 uint8_t Enemy::GetPlayerCellDistance() const
 {
-	uint8_t dx = ABS(Game::player.x - x) / CELL_SIZE;
-	uint8_t dy = ABS(Game::player.y - y) / CELL_SIZE;
+	uint8_t dx = ABS(Game::player.cellX - cellX);
+	uint8_t dy = ABS(Game::player.cellY - cellY);
 	return dx > dy ? dx : dy;
 }
 
 void Enemy::PickNewTargetCell()
 {
-	int8_t deltaX = (int8_t) Clamp((Game::player.x / CELL_SIZE) - targetCellX, -1, 1);
-	int8_t deltaY = (int8_t) Clamp((Game::player.y / CELL_SIZE) - targetCellY, -1, 1);
+	int8_t deltaX = (int8_t) Clamp((Game::player.cellX) - targetCellX, -1, 1);
+	int8_t deltaY = (int8_t) Clamp((Game::player.cellY) - targetCellY, -1, 1);
 	uint8_t dodgeChance = (uint8_t) Random();
 
 	if (GetArchetype()->GetIsRanged() && GetPlayerCellDistance() < 3)
@@ -260,8 +260,8 @@ bool Enemy::FireProjectile(angle_t angle)
 
 bool Enemy::TryFireProjectile()
 {
-	int8_t deltaX = (Game::player.x - x) / CELL_SIZE;
-	int8_t deltaY = (Game::player.y - y) / CELL_SIZE;
+	int8_t deltaX = (Game::player.cellX - cellX);
+	int8_t deltaY = (Game::player.cellY - cellY);
 
 	if (deltaX == 0)
 	{

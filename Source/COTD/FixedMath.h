@@ -14,20 +14,20 @@
 
 #define ABS(x) (((x) < 0) ? -(x) : (x))
 
-#define FIXED_ANGLE_MAX 256
-#define FIXED_ANGLE_WRAP(x) ((x) & 255)
+#define FIXED_ANGLE_MAX 1024
+#define FIXED_ANGLE_WRAP(x) ((x) & 1023)
 #define FIXED_ANGLE_45 (FIXED_ANGLE_90 / 2)
 #define FIXED_ANGLE_90 (FIXED_ANGLE_MAX / 4)
 #define FIXED_ANGLE_180 (FIXED_ANGLE_90 * 2)
 #define FIXED_ANGLE_270 (FIXED_ANGLE_90 * 3)
 #define FIXED_ANGLE_TO_RADIANS(x) ((x) * (2.0f * 3.141592654f / FIXED_ANGLE_MAX))
 
-typedef uint8_t angle_t;
+typedef uint16_t angle_t;
 extern const int16_t sinTable[FIXED_ANGLE_MAX];
 
 inline int16_t FixedSin(angle_t angle)
 {
-	return sinTable[angle];
+	return sinTable[FIXED_ANGLE_WRAP(angle)];
 }
 
 inline int16_t FixedCos(angle_t angle)

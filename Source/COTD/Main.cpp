@@ -374,14 +374,16 @@ int main()
 #if WITH_PROFILER
 		{
 			static char profileStr[80];
-			sprintf(profileStr, "Draw: %3ld Tick: %3ld PlotWall: %3ld BlitWall: %3ld Spr: %3ld Por: %3ld         ",
+			sprintf(profileStr, "Dr:%3ld Tk:%3ld PW:%3ld BW:%3ld Sp:%3ld Po:%3ld Ob:%3ld Tr:%3ld ",
 				Profiler::timerValue[Profile_Draw],
 				Profiler::timerValue[Profile_Tick],
 				Profiler::timerValue[Profile_PlotWall],
 				Profiler::timerValue[Profile_BlitWall],
 				Profiler::timerValue[Profile_BlitSprite],
-				Profiler::timerValue[Profile_CalcPortal]
-				);
+				Profiler::timerValue[Profile_CalcPortal],
+				Profiler::timerValue[Profile_DrawObjects],
+				Profiler::timerValue[Profile_TransformVerts]
+			);
 			Platform::DrawString(DOSLib::backBuffer, profileStr, 0, 23, 0x0f);
 			Platform::DrawString(DOSLib::frontBuffer, profileStr, 0, 23, 0x0f);
 		}
