@@ -464,7 +464,11 @@ inline void Renderer::RenderQueuedDrawables(backbuffer_t backBuffer)
 			{
 				if (outX >= 0 && outX < DISPLAY_WIDTH && wBuffer[outX] < drawable.inverseCameraDistance)
 				{
+#if USE_GRAPHICS_MODE
+					drawable.drawRoutine(backBuffer + outX, x, drawable.halfSize);
+#else
 					drawable.drawRoutine(backBuffer + outX * 2 + 1, x, drawable.halfSize);
+#endif
 				}
 				outX++;
 			}
@@ -1180,12 +1184,20 @@ void Renderer::Render(backbuffer_t backBuffer, Player& player)
 
 	{
 		PROFILE_SECTION(BlitWall);
+#if USE_GRAPHICS_MODE
+		int bufferOffset = 0;
+		for (int x = 0; x < DISPLAY_WIDTH; x++)
+		{
+			RenderWallSlice(backBuffer + x, wBuffer[x], wallColourUpper[x], wallColourLower[x]);
+		}
+#else
 		int bufferOffset = 1;
 		for (int x = 0; x < DISPLAY_WIDTH; x++)
 		{
 			RenderWallSlice(backBuffer + bufferOffset, wBuffer[x], wallColourUpper[x], wallColourLower[x]);
 			bufferOffset += 2;
 		}
+#endif
 	}
 
 	{
@@ -1194,7 +1206,6 @@ void Renderer::Render(backbuffer_t backBuffer, Player& player)
 	}
 
 	DrawWeapon(backBuffer);
-
 	//printf("Cells: %d Walls: %d Segments: %d Visible: %d\n", cellDrawCounter, wallDrawCounter, wallSegmentDrawCounter, visibleSegmentCounter);
 }
 

@@ -191,7 +191,15 @@ void Map::GenerateRoomStructure()
 {
 	Platform::Log("Generating render structures..");
 
-#if USE_MONO_OUTPUT
+#if USE_GRAPHICS_MODE
+#if USE_COMPOSITE_COLOURS
+	const uint8_t verticalColour = 0x22;
+	const uint8_t horizontalColour = 0x33;
+#else
+	const uint8_t verticalColour = 0x44;
+	const uint8_t horizontalColour = 0x55;
+#endif
+#elif USE_MONO_OUTPUT
 	const uint8_t verticalColour = 7;
 	const uint8_t horizontalColour = 7;
 #else

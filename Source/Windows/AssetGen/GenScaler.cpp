@@ -6,6 +6,17 @@
 
 using namespace std;
 
+#if USE_GRAPHICS_MODE
+#if USE_COMPOSITE_COLOURS
+constexpr int floorColour = 0x55;
+constexpr int ceilingColour = 0x55;
+constexpr int outlineColour = 0;
+#else
+constexpr int floorColour = 0x77;
+constexpr int ceilingColour = 0xff;
+constexpr int outlineColour = 0;
+#endif
+#else
 #if USE_MONO_OUTPUT
 constexpr int floorColour = 7;
 constexpr int ceilingColour = 7;
@@ -15,10 +26,128 @@ constexpr int floorColour = 7;
 constexpr int ceilingColour = 8;
 constexpr int outlineColour = 0;
 #endif
+#endif
+
 constexpr int displayHeight = 40;
 constexpr int horizon = 20;
 constexpr int displayWidth = 80;
 
+#if USE_GRAPHICS_MODE
+void WriteWallScaler(ofstream& output)
+{
+#if USE_TILT_CODE
+	output << "void far RenderWallSlice(unsigned char far* p, char h, unsigned char s, unsigned char u, unsigned char l) {" << endl;
+#else
+	output << "void RenderWallSlice(unsigned char far* p, unsigned char s, unsigned char u, unsigned char l) {" << endl;
+#endif
+	int outline = 0;
+	int upper = 1;
+	int lower = 2;
+	int floor = 3;
+	int ceiling = 4;
+
+
+#if USE_TILT_CODE
+	output << " switch(h) {" << endl;
+	for (int h = -2; h <= 2; h++)
+	{
+		int horizon = 20 + h;
+
+		output << "  case " << h << ":" << endl;
+#endif
+		output << "  switch(s) {" << endl;
+
+		for (int s = 0; s < 64; s++)
+		{
+			output << "   case " << s << ": ";
+			int address = 0;
+			vector<int> wall;
+
+			for (int n = 0; n < s * 2; n++)
+			{
+				if (n == 0 || n == s * 2 - 1)
+				{
+					wall.push_back(outline);
+				}
+				else
+				{
+					if (n < 2 * s / 3 || n > 4 * s / 3)
+					{
+						wall.push_back(upper);
+					}
+					else
+					{
+						wall.push_back(lower);
+					}
+				}
+			}
+			if (wall.size() > 0)
+			{
+				wall[2 * s / 3] = outline;
+				wall[4 * s / 3] = outline;
+			}
+
+			for (int y = 0; y < displayHeight; y++)
+			{
+				int col = 0;
+
+				if (y < horizon - s)
+				{
+					col = ceiling;
+				}
+				else if (y >= horizon + s)
+				{
+					col = floor;
+				}
+				else
+				{
+					int v = y - (horizon - s);
+					col = wall[v];
+				}
+
+				output << "p[" << address << "]=";
+
+				if (col == floor)
+				{
+					output << floorColour;
+				}
+				else if (col == ceiling)
+				{
+					output << ceilingColour;
+				}
+				else if (col == upper)
+				{
+					output << "u";
+				}
+				else if (col == lower)
+				{
+					output << "l";
+				}
+				else if (col == outline)
+				{
+					output << outlineColour;
+				}
+
+				output << ";";
+
+				address += displayWidth;
+			}
+
+			output << "   break;" << endl;
+		}
+
+		output << "  }" << endl;
+
+#if USE_TILT_CODE		
+		output << "  break;" << endl;
+	}
+	output << "}" << endl;
+#endif
+
+	output << "}" << endl;
+	output << endl;
+}
+#else
 void WriteWallScaler(ofstream& output)
 {
 #if USE_TILT_CODE
@@ -194,3 +323,4 @@ void WriteWallScaler(ofstream& output)
 	output << "}" << endl;
 	output << endl;
 }
+#endif

@@ -129,10 +129,11 @@ void Game::TickInGame()
 	Map::Tick();
 #endif
 
+	
 	ProjectileManager::Update();
 	ParticleSystemManager::Update();
 	EnemyManager::Update();
-
+	
 	if (Map::GetCellSafe(player.x / CELL_SIZE, player.y / CELL_SIZE) == CT_Exit)
 	{
 		NextLevel();

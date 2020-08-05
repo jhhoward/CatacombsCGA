@@ -24,7 +24,7 @@ public:
 
 private:
 	// Video
-	static void SetScreenMode(int screenMode, bool disableBlinking);
+	static void SetScreenMode(int screenMode, bool disableBlinking = false, bool enableColourBurst = false);
 
 	// Timer
 	static void InstallTimer();

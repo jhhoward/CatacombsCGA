@@ -18,7 +18,72 @@ const char* drawRoutinesHeaderOutputPath = GENERATED_DIR "DrawRoutines.inc.h";
 
 void WriteWallScaler(ofstream& output);
 
-unsigned char palette[16 * 3] =
+#if USE_GRAPHICS_MODE
+constexpr int numPaletteEntries = 16;
+unsigned char paletteOutput[numPaletteEntries];
+
+#if USE_COMPOSITE_COLOURS
+unsigned char palette[numPaletteEntries * 3] =
+{
+	0x00, 0x00, 0x00,
+	0x00, 0x6e, 0x31,
+	0x31, 0x09, 0xff,
+	0x00, 0x8a,	0xff,
+	0xa7, 0x00, 0x31,
+	0x76, 0x76, 0x76,
+	0xec, 0x11, 0xff,
+	0xbb, 0x92, 0xff,
+	0x31, 0x5a, 0x00,
+	0x00, 0xdb, 0x00,
+	0x76, 0x76, 0x76,
+	0x45, 0xf7, 0xbb,
+	0xec, 0x63, 0x00,
+	0xbb, 0xe4, 0x00,
+	0xff, 0x7f, 0xbb,
+	0xff, 0xff, 0xff
+};
+
+void GeneratePalette()
+{
+	for (int n = 0; n < numPaletteEntries; n++)
+	{
+		paletteOutput[n] = n | (n << 4);
+	}
+}
+#else
+constexpr int numBasePaletteEntries = 4;
+unsigned char basePalette[4 * 3] =
+{
+	0,	0,	0,
+	0x55,	0xff,	0xff,
+	0xff,	0x55,	0xff,
+	0xff,	0xff,	0xff
+};
+
+unsigned char palette[16 * 4];
+
+void GeneratePalette()
+{
+	int index = 0;
+
+	for (int y = 0; y < numBasePaletteEntries; y++)
+	{
+		for (int x = 0; x < numBasePaletteEntries; x++)
+		{
+			palette[index * 3] = (basePalette[x * 3] / 2) + (basePalette[y * 2] / 2);
+			palette[index * 3 + 1] = (basePalette[x * 3 + 1] / 2) + (basePalette[y * 2 + 1] / 2);
+			palette[index * 3 + 2] = (basePalette[x * 3 + 2] / 2) + (basePalette[y * 2 + 2] / 2);
+
+			paletteOutput[index] = (x) | (y << 2) | (x << 4) | (y << 6);
+			index++;
+		}
+	}
+}
+#endif
+
+#else
+constexpr int numPaletteEntries = 16;
+unsigned char palette[numPaletteEntries * 3] =
 {
 	0,	0,	0,
 	0,	0,	0xaa,
@@ -37,6 +102,7 @@ unsigned char palette[16 * 3] =
 	0xff,	0xff,	0x55,
 	0xff,	0xff,	0xff
 };
+#endif
 
 unsigned char matchColour(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 {
@@ -48,7 +114,7 @@ unsigned char matchColour(unsigned char r, unsigned char g, unsigned char b, uns
 	unsigned char closest = 0;
 	int closestDistance = -1;
 
-	for (int n = 0; n < 16; n++)
+	for (int n = 0; n < numPaletteEntries; n++)
 	{
 		int distance = (r - palette[n * 3]) * (r - palette[n * 3])
 			+ (g - palette[n * 3 + 1]) * (g - palette[n * 3 + 1])
@@ -62,7 +128,6 @@ unsigned char matchColour(unsigned char r, unsigned char g, unsigned char b, uns
 
 	return closest;
 }
-
 
 enum class ImageColour
 {
@@ -507,6 +572,7 @@ bool LoadPNGAsPaletted(const char* path, vector<unsigned char>& output, unsigned
 	return false;
 }
 
+#if USE_GRAPHICS_MODE
 void GenerateWeaponRoutine(ofstream& output, const char* routineName, const char* sourceImagePath)
 {
 	vector<unsigned char> palettedImage;
@@ -517,7 +583,49 @@ void GenerateWeaponRoutine(ofstream& output, const char* routineName, const char
 		return;
 	}
 
-	output << "void Draw" << routineName << "(unsigned char far* p, unsigned char x, unsigned char y) {" << endl;
+	output << "void Draw" << routineName << "(backbuffer_t p, unsigned char x, unsigned char y) {" << endl;
+	output << "  p += x;" << endl;
+	output << "  p += " << (80 * (40 - height)) << " + (y * 80) ;" << endl;
+	output << "  switch(y) {" << endl;
+
+	int yCase = 0;
+
+	for (int y = height - 1; y >= 0; y --)
+	{
+		output << "   case " << yCase << ":" << endl;
+		yCase++;
+		output << "    ";
+		for (unsigned int x = 0; x < width; x++)
+		{
+			int index = ((y) * 80 + x);
+			int col = palettedImage[y * width + x];
+
+			if (col != 0xff)
+			{
+				int outputCol = paletteOutput[col]; // col | (col << 2) | (col << 4) | (col << 6);
+				output << "p[" << index << "]=" << outputCol << ";";
+			}
+		}
+		output << endl;
+	}
+	output << "   break;" << endl;
+	output << "  }" << endl;
+	output << endl;
+
+	output << "}" << endl;
+}
+#else
+void GenerateWeaponRoutine(ofstream& output, const char* routineName, const char* sourceImagePath)
+{
+	vector<unsigned char> palettedImage;
+	unsigned int width, height;
+
+	if (!LoadPNGAsPaletted(sourceImagePath, palettedImage, width, height))
+	{
+		return;
+	}
+
+	output << "void Draw" << routineName << "(backbuffer_t p, unsigned char x, unsigned char y) {" << endl;
 	output << "  p += (x << 1);" << endl;
 	output << "  p += " << (160 * (20 - height / 2)) << " + ((y >> 1) * 160) ;" << endl;
 	output << "  switch(y) {" << endl;
@@ -589,7 +697,9 @@ void GenerateWeaponRoutine(ofstream& output, const char* routineName, const char
 
 	output << "}" << endl;
 }
+#endif
 
+#if USE_GRAPHICS_MODE
 void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* routineName, const char* sourceImagePath)
 {
 	vector<unsigned char> palettedImage;
@@ -600,9 +710,118 @@ void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* r
 		return;
 	}
 
-	typeOutput << "void far Draw" << routineName << "(unsigned char far* p, unsigned char x, unsigned char s);" << endl;
+	typeOutput << "void far Draw" << routineName << "(backbuffer_t p, unsigned char x, unsigned char s);" << endl;
 
-	output << "void far Draw" << routineName << "(unsigned char far* p, unsigned char x, unsigned char s) {" << endl;
+	output << "void far Draw" << routineName << "(backbuffer_t p, unsigned char x, unsigned char s) {" << endl;
+	output << " switch(s) {" << endl;
+
+	for (int s = 1; s < 20; s++)
+	{
+		vector<unsigned char> scaledSprRaw;
+		for (int y = 0; y < s * 2; y++)
+		{
+			int v = (y * height) / (s * 2);
+			if (v >= height)
+				v = height - 1;
+
+			for (int x = 0; x < s * 2; x++)
+			{
+				int u = (x * width) / (s * 2);
+				if (u >= width)
+					u = width - 1;
+				scaledSprRaw.push_back(palettedImage[v * width + u]);
+			}
+		}
+
+		vector<unsigned char> scaledSpr;
+		unsigned char outlineCol = 0;
+
+		for (int y = 0; y < s * 2; y++)
+		{
+			for (int x = 0; x < s * 2; x++)
+			{
+				unsigned char col = scaledSprRaw[y * s * 2 + x];
+				if (col == 0xff)
+				{
+					if (x > 0 && scaledSprRaw[y * s * 2 + x - 1] != 0xff)
+					{
+						col = outlineCol;
+					}
+					else if (x < s * 2 - 1 && scaledSprRaw[y * s * 2 + x + 1] != 0xff)
+					{
+						col = outlineCol;
+					}
+					else if (y > 0 && scaledSprRaw[(y - 1) * s * 2 + x] != 0xff)
+					{
+						col = outlineCol;
+					}
+					else if (y < s * 2 - 1 && scaledSprRaw[(y + 1) * s * 2 + x] != 0xff)
+					{
+						col = outlineCol;
+					}
+				}
+				else if (x == 0 || y == 0 || x == s * 2 - 1 || y == s * 2 - 1)
+				{
+					col = outlineCol;
+				}
+
+				scaledSpr.push_back(col);
+			}
+		}
+
+
+		output << "  case " << s << ":" << endl;
+		output << "  switch(x) {" << endl;
+
+		for (int x = 0; x < s * 2; x++)
+		{
+			output << "   case " << x << ": ";
+
+			int outAddress = (10 - s / 2) * 160;
+
+			for (int y = 0; y < s * 2; y++)
+			{
+				unsigned char col = scaledSpr[y * s * 2 + x];
+
+				if (outAddress >= 0 && col != 0xff)
+				{
+					int outputCol = paletteOutput[col]; // col | (col << 2) | (col << 4) | (col << 6);
+					output << "p[" << outAddress << "]=" << outputCol << ";";
+				}
+
+				outAddress += 80;
+
+				if (outAddress >= 40 * 80)
+				{
+					break;
+				}
+			}
+			output << " break;" << endl;
+		}
+
+		output << "  }" << endl;
+		output << "  break;" << endl;
+	}
+
+	output << " }" << endl;
+	output << "}" << endl;
+	output << endl;
+
+}
+#else
+void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* routineName, const char* sourceImagePath)
+{
+	vector<unsigned char> palettedImage;
+	unsigned int width, height;
+
+	if (!LoadPNGAsPaletted(sourceImagePath, palettedImage, width, height))
+	{
+		return;
+	}
+
+	typeOutput << "void far Draw" << routineName << "(backbuffer_t p, unsigned char x, unsigned char s);" << endl;
+
+	output << "void far Draw" << routineName << "(backbuffer_t p, unsigned char x, unsigned char s) {" << endl;
 	output << " switch(s) {" << endl;
 
 	for (int s = 1; s < 20; s++)
@@ -712,6 +931,7 @@ void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* r
 	output << endl;
 
 }
+#endif
 
 
 void GenerateSinTable()
@@ -783,6 +1003,9 @@ int main(int argc, char* argv[])
 	dataFile.close();
 	typeFile.close();*/
 
+#if USE_GRAPHICS_MODE
+	GeneratePalette();
+#endif
 	GenerateSinTable();
 
 	ofstream wallScalerFile;

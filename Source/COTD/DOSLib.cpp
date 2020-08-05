@@ -4,6 +4,8 @@
 #include <memory.h>
 #include "DOSLib.h"
 
+#include "Defines.h"
+
 INTFUNCPTR DOSLib::oldTimerInterrupt; 
 volatile long int DOSLib::milliseconds; 
 INTFUNCPTR DOSLib::oldKeyboardInterrupt; 
@@ -17,7 +19,15 @@ static unsigned char far* DOSLib::frontBuffer = (unsigned char far*) MK_FP(0xB80
 
 void DOSLib::Init()
 {
+#if USE_GRAPHICS_MODE
+#if USE_COMPOSITE_COLOURS
+	SetScreenMode(6, false, true);
+#else
+	SetScreenMode(4, false);
+#endif
+#else
 	SetScreenMode(3, true);
+#endif
 	ClearScreen();
 	InstallTimer();
 	InstallKeyboard();
@@ -32,6 +42,7 @@ void DOSLib::Shutdown()
 
 void DOSLib::ClearScreen()
 {
+#if !USE_GRAPHICS_MODE
 	unsigned short far* VRAM = (unsigned short far*)MK_FP(0xB800, 0);
 	unsigned short clear = 0x00df;
 	int n;
@@ -40,15 +51,23 @@ void DOSLib::ClearScreen()
 	{
 		VRAM[n] = clear;
 	}
+#endif
 }
 
-void DOSLib::SetScreenMode(int screenMode, bool disableBlinking)
+void DOSLib::SetScreenMode(int screenMode, bool disableBlinking, bool enableColourBurst)
 {
 	union REGS inreg, outreg;
 	inreg.h.ah = 0;
 	inreg.h.al = (unsigned char)screenMode;
 
 	int86(0x10, &inreg, &outreg);
+
+	if (enableColourBurst)
+	{
+		int bits = inp(0x3D8);
+		bits &= ~4;
+		outp(0x3D8, bits);
+	}
 
 	if (disableBlinking)
 	{
@@ -65,6 +84,7 @@ void DOSLib::SetScreenMode(int screenMode, bool disableBlinking)
 
 void DOSLib::DisplayFlip()
 {
+#if !USE_GRAPHICS_MODE
 	if (backBuffer == VRAM1)
 	{
 		backBuffer = VRAM2;
@@ -83,6 +103,7 @@ void DOSLib::DisplayFlip()
 		outp(0x3d4, 0xd);
 		outp(0x3d5, 0x0);
 	}
+#endif
 }
 
 void DOSLib::InstallTimer()

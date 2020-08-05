@@ -9,6 +9,40 @@ static uint8_t inputState = 0;
 
 unsigned long Profiler::timerValue[NumProfilerSectionTypes];
 
+#if USE_GRAPHICS_MODE
+#define WINDOW_WIDTH 80
+#define WINDOW_HEIGHT 40
+
+unsigned char windowBackBuffer[WINDOW_WIDTH * WINDOW_HEIGHT];
+
+void BlitWindow(unsigned char* src, unsigned int dstSeg);
+#if 0
+#pragma aux BlitWindow = \
+	"mov ax, 0" \
+	"mov di, ax" \
+	"mov cx, 1600" 		/* Copy 3200 bytes */ \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	modify [ax di cx si] \
+	parm [si] [es];
+#endif
+#pragma aux BlitWindow = \
+	"mov ax, 0" \
+	"mov di, ax" \
+	"mov dx, 40"		/* 40 lines */ \
+	"_blitLine:" \
+	"mov cx, 40" 		/* Copy 80 bytes */ \
+	"push si" \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	"pop si" \
+	"mov cx, 40" 		/* Copy 80 bytes */ \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	"dec dx" \
+	"jnz _blitLine" \
+	modify [ax dx di cx si] \
+	parm [si] [es];
+
+#endif
+
 uint8_t Platform::GetInput(void)
 {
 	return inputState;
@@ -46,6 +80,17 @@ void Platform::FillScreen(uint8_t col)
 
 void Platform::PutPixel(uint8_t x, uint8_t y, uint8_t colour)
 {
+#if USE_GRAPHICS_MODE
+	backbuffer_t backBuffer = windowBackBuffer;
+
+	int offset = (((y << 6) + (y << 4) + x));
+
+	if (offset > (WINDOW_WIDTH * WINDOW_HEIGHT))
+		return;
+
+	backBuffer[offset] = colour;
+
+#else
 	backbuffer_t backBuffer = DOSLib::backBuffer;
 	uint8_t row = y >> 1;
 	//backBuffer += (row << 6) + (row << 4) + x * 2 + 1;
@@ -64,6 +109,7 @@ void Platform::PutPixel(uint8_t x, uint8_t y, uint8_t colour)
 	{
 		*backBuffer = (*backBuffer & 0xf0) | (colour);
 	}
+#endif
 }
 
 void Platform::DrawBitmap(int16_t x, int16_t y, const uint8_t *bitmap)
@@ -88,12 +134,14 @@ void Platform::DrawSprite(int16_t x, int16_t y, const uint8_t *bitmap, uint8_t f
 
 void Platform::DrawString(unsigned char far* vram, const char* string, int x, int y, unsigned char colourAttribute)
 {
+#if !USE_GRAPHICS_MODE
 	vram += y * 160 + x * 2;
 	while (*string)
 	{
 		*vram++ = *string++;
 		*vram++ = colourAttribute;
 	}
+#endif
 }
 
 void Platform::Log(const char* format, ...)
@@ -286,6 +334,7 @@ void Fire()
 	}
 }
 
+
 int main()
 {
 	DOSLib::Init();
@@ -298,6 +347,7 @@ int main()
 	unsigned long fpsTimer = DOSLib::GetTime();
 	int fpsCounter = 0;
 	int fps = 0;
+	bool interlace = false;
 
 	//Fire();
 
@@ -354,10 +404,38 @@ int main()
 
 		if (framesSimulated > 0)
 		{
+#if USE_GRAPHICS_MODE
+			Game::Draw(windowBackBuffer);
+#else
 			Game::Draw(DOSLib::backBuffer);
 			DOSLib::DisplayFlip();
+#endif
 			fpsCounter++;
 		}
+
+#if USE_GRAPHICS_MODE
+		if (DOSLib::normalKeys[0x17]) // I
+		{
+			interlace = !interlace;
+			while (DOSLib::normalKeys[0x17]);
+		}
+
+		if(interlace)
+		{
+			static bool even = true;
+			even = !even;
+
+			if (even)
+				BlitWindow(windowBackBuffer, 0xb800);
+			else
+				BlitWindow(windowBackBuffer, 0xba00);
+		}
+		else
+		{
+			BlitWindow(windowBackBuffer, 0xb800);
+			BlitWindow(windowBackBuffer, 0xba00);
+		}
+#endif
 
 		if (DOSLib::GetTime() > fpsTimer)
 		{
@@ -396,6 +474,9 @@ int main()
 	}
 
 	DOSLib::Shutdown();
+
+	printf("FPS: %d\n", fps);
+	getchar();
 
 	return 0;
 }

@@ -19,12 +19,22 @@
 //#define pgm_read_ptr pgm_read_word
 #endif
 
+#define USE_MONO_OUTPUT 0
+#define USE_LOW_PRECISION_RENDERING 1
+#define USE_GRAPHICS_MODE 1
+#define USE_COMPOSITE_COLOURS 1
+
 #if _DOS
 #define DISPLAY_WIDTH 80
 #define DISPLAY_HEIGHT 50
 
+#if USE_GRAPHICS_MODE
+typedef unsigned char* backbuffer_t;
+#else
 typedef unsigned char far* backbuffer_t;
-typedef void (__far* drawRoutine_t)(unsigned char far* backBuffer, unsigned char x, unsigned char scale);
+#endif
+
+typedef void (__far* drawRoutine_t)(backbuffer_t backBuffer, unsigned char x, unsigned char scale);
 
 #elif _WIN32
 #define DISPLAY_WIDTH 128
@@ -46,9 +56,6 @@ typedef void (__far* drawRoutine_t)(unsigned char far* backBuffer, unsigned char
 
 #define COLOUR_WHITE 1
 #define COLOUR_BLACK 0
-
-#define USE_MONO_OUTPUT 0
-#define USE_LOW_PRECISION_RENDERING 1
 
 #if USE_MONO_OUTPUT
 #define DETAIL_COLOUR 0
