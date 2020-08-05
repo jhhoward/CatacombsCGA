@@ -191,8 +191,14 @@ void Map::GenerateRoomStructure()
 {
 	Platform::Log("Generating render structures..");
 
+#if USE_MONO_OUTPUT
+	const uint8_t verticalColour = 7;
+	const uint8_t horizontalColour = 7;
+#else
 	const uint8_t verticalColour = 3;
 	const uint8_t horizontalColour = 11;
+#endif
+
 	for (int n = 0; n < MAX_ROOMS; n++)
 	{
 		rooms[n].numVertices = 0;

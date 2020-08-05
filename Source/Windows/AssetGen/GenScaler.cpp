@@ -1,16 +1,22 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-
+#include "Defines.h"
 #define USE_TILT_CODE 0
 
 using namespace std;
 
+#if USE_MONO_OUTPUT
+constexpr int floorColour = 7;
+constexpr int ceilingColour = 7;
+constexpr int outlineColour = 0;
+#else
 constexpr int floorColour = 7;
 constexpr int ceilingColour = 8;
+constexpr int outlineColour = 0;
+#endif
 constexpr int displayHeight = 40;
 constexpr int horizon = 20;
-constexpr int outlineColour = 0;
 constexpr int displayWidth = 80;
 
 void WriteWallScaler(ofstream& output)

@@ -47,7 +47,14 @@ typedef void (__far* drawRoutine_t)(unsigned char far* backBuffer, unsigned char
 #define COLOUR_WHITE 1
 #define COLOUR_BLACK 0
 
+#define USE_MONO_OUTPUT 0
 #define USE_LOW_PRECISION_RENDERING 1
+
+#if USE_MONO_OUTPUT
+#define DETAIL_COLOUR 0
+#else
+#define DETAIL_COLOUR 0
+#endif
 
 #define CAMERA_SCALE 1
 

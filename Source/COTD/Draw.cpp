@@ -701,7 +701,7 @@ inline void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16
 
 	if (leftEdgeVisible && sx1 >= context.clipLeft && wallId[sx1] == currentWallId)
 	{
-		wallColourUpper[sx1] = 0;
+		wallColourUpper[sx1] = DETAIL_COLOUR;
 	}
 
 	detailDeltaX /= steps;
@@ -733,11 +733,11 @@ inline void Renderer::DrawWallVS(RoomDrawContext& context, int16_t viewX1, int16
 			{
 				if (n & 1)
 				{
-					wallColourLower[dsx] = 0;
+					wallColourLower[dsx] = DETAIL_COLOUR;
 				}
 				else
 				{
-					wallColourUpper[dsx] = 0;
+					wallColourUpper[dsx] = DETAIL_COLOUR;
 				}
 			}
 		}
@@ -1124,10 +1124,15 @@ void Renderer::DrawGeometry(backbuffer_t backBuffer)
 #endif
 }
 
-#define UNROLL_8(CODE) CODE CODE CODE CODE CODE CODE CODE CODE
-#define UNROLL_80(CODE)  \
-	UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE) \
-	UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE) UNROLL_8(CODE)
+void ClearWBuffer(unsigned char* wBuffer);
+#pragma aux ClearWBuffer = \
+	"mov ax, ds" /* ES:DI = wBuffer */ \
+	"mov es, ax" \
+	"mov cx, 80" /* 80 bytes */ \
+	"mov ax, 1" /* Set to 1 */ \
+	"rep stosb" \
+	modify [es cx ax] \
+	parm [di]
 
 void Renderer::Render(backbuffer_t backBuffer, Player& player)
 {
@@ -1145,10 +1150,7 @@ void Renderer::Render(backbuffer_t backBuffer, Player& player)
 	numBufferSlicesFilled = 0;
 	numQueuedDrawables = 0;
 
-	{
-		uint8_t n = 0;
-		UNROLL_80(wBuffer[n++] = 1;)
-	}
+	ClearWBuffer(wBuffer);
 
 	camera.rotCos = FixedCos(-camera.angle);
 	camera.rotSin = FixedSin(-camera.angle);
