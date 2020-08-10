@@ -196,7 +196,7 @@ void Map::GenerateRoomStructure()
 	const uint8_t verticalColour = 0x22;
 	const uint8_t horizontalColour = 0x33;
 #else
-	const uint8_t verticalColour = 0x44;
+	const uint8_t verticalColour = 0x77;
 	const uint8_t horizontalColour = 0x55;
 #endif
 #elif USE_MONO_OUTPUT

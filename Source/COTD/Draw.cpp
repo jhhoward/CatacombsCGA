@@ -75,6 +75,7 @@ void inline Renderer::DrawWallSegment(RoomDrawContext& context, int16_t x1, int1
 
 	dx = x2 - x1;
 	werror = dx / 2;
+
 	w = w1;
 
 	if (w1 < w2)

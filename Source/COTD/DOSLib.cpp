@@ -62,11 +62,14 @@ void DOSLib::SetScreenMode(int screenMode, bool disableBlinking, bool enableColo
 
 	int86(0x10, &inreg, &outreg);
 
+	//outp(0x3D9, 0x9);
+
 	if (enableColourBurst)
 	{
-		int bits = inp(0x3D8);
-		bits &= ~4;
-		outp(0x3D8, bits);
+		//int bits = inp(0x3D8);
+		//bits &= ~4;
+		//outp(0x3D8, bits);
+		outp(0x3D8, 0x1A);
 	}
 
 	if (disableBlinking)

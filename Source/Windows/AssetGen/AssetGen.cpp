@@ -52,6 +52,7 @@ void GeneratePalette()
 }
 #else
 constexpr int numBasePaletteEntries = 4;
+
 unsigned char basePalette[4 * 3] =
 {
 	0,	0,	0,
@@ -59,6 +60,14 @@ unsigned char basePalette[4 * 3] =
 	0xff,	0x55,	0xff,
 	0xff,	0xff,	0xff
 };
+
+/*unsigned char basePalette[4 * 3] =
+{
+	0xff,	0xff,	0xff,
+	0xaa,	0xaa,	0xaa,
+	0x55,	0x55,	0x55,
+	0x00,	0x00,	0x00,
+};*/
 
 unsigned char palette[16 * 4];
 
@@ -70,14 +79,24 @@ void GeneratePalette()
 	{
 		for (int x = 0; x < numBasePaletteEntries; x++)
 		{
-			palette[index * 3] = (basePalette[x * 3] / 2) + (basePalette[y * 2] / 2);
-			palette[index * 3 + 1] = (basePalette[x * 3 + 1] / 2) + (basePalette[y * 2 + 1] / 2);
-			palette[index * 3 + 2] = (basePalette[x * 3 + 2] / 2) + (basePalette[y * 2 + 2] / 2);
+			palette[index * 3] = (basePalette[x * 3] / 2) + (basePalette[y * 3] / 2);
+			palette[index * 3 + 1] = (basePalette[x * 3 + 1] / 2) + (basePalette[y * 3 + 1] / 2);
+			palette[index * 3 + 2] = (basePalette[x * 3 + 2] / 2) + (basePalette[y * 3 + 2] / 2);
 
 			paletteOutput[index] = (x) | (y << 2) | (x << 4) | (y << 6);
 			index++;
 		}
 	}
+
+	vector<unsigned char> pixels;
+	for (int n = 0; n < numPaletteEntries; n++)
+	{
+		pixels.push_back(palette[n * 3 + 0]);
+		pixels.push_back(palette[n * 3 + 1]);
+		pixels.push_back(palette[n * 3 + 2]);
+		pixels.push_back(255);
+	}
+	lodepng::encode("pal.png", pixels, 4, 4);
 }
 #endif
 
@@ -585,7 +604,7 @@ void GenerateWeaponRoutine(ofstream& output, const char* routineName, const char
 
 	output << "void Draw" << routineName << "(backbuffer_t p, unsigned char x, unsigned char y) {" << endl;
 	output << "  p += x;" << endl;
-	output << "  p += " << (80 * (40 - height)) << " + (y * 80) ;" << endl;
+	output << "  p += " << (80 * (VIEWPORT_HEIGHT - height)) << " + (y * 80) ;" << endl;
 	output << "  switch(y) {" << endl;
 
 	int yCase = 0;
@@ -699,6 +718,8 @@ void GenerateWeaponRoutine(ofstream& output, const char* routineName, const char
 }
 #endif
 
+#define MAX_SPRITE_HEIGHT 20
+
 #if USE_GRAPHICS_MODE
 void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* routineName, const char* sourceImagePath)
 {
@@ -715,7 +736,7 @@ void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* r
 	output << "void far Draw" << routineName << "(backbuffer_t p, unsigned char x, unsigned char s) {" << endl;
 	output << " switch(s) {" << endl;
 
-	for (int s = 1; s < 20; s++)
+	for (int s = 1; s < MAX_SPRITE_HEIGHT; s++)
 	{
 		vector<unsigned char> scaledSprRaw;
 		for (int y = 0; y < s * 2; y++)
@@ -777,7 +798,7 @@ void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* r
 		{
 			output << "   case " << x << ": ";
 
-			int outAddress = (10 - s / 2) * 160;
+			int outAddress = (VIEWPORT_HEIGHT / 2 - s) * 80;
 
 			for (int y = 0; y < s * 2; y++)
 			{
@@ -791,7 +812,7 @@ void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* r
 
 				outAddress += 80;
 
-				if (outAddress >= 40 * 80)
+				if (outAddress >= VIEWPORT_HEIGHT * 80)
 				{
 					break;
 				}
@@ -824,7 +845,7 @@ void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* r
 	output << "void far Draw" << routineName << "(backbuffer_t p, unsigned char x, unsigned char s) {" << endl;
 	output << " switch(s) {" << endl;
 
-	for (int s = 1; s < 20; s++)
+	for (int s = 1; s < MAX_SPRITE_HEIGHT; s++)
 	{
 		vector<unsigned char> scaledSprRaw;
 		for (int y = 0; y < s * 2; y++)

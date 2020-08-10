@@ -41,7 +41,7 @@ void ParticleSystem::Step()
 void ParticleSystem::Draw(int x, int halfScale)
 {
 	int scale = 2 * halfScale;
-	int8_t horizon = 20; //Renderer::GetHorizon(x);
+	int8_t horizon = VIEWPORT_HEIGHT / 2; //Renderer::GetHorizon(x);
 	
 	for(int n = 0; n < PARTICLES_PER_SYSTEM; n++)
 	{

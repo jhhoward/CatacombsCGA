@@ -12,8 +12,12 @@ constexpr int floorColour = 0x55;
 constexpr int ceilingColour = 0x55;
 constexpr int outlineColour = 0;
 #else
-constexpr int floorColour = 0x77;
-constexpr int ceilingColour = 0xff;
+//constexpr int floorColour = 0x77;
+//constexpr int ceilingColour = 0xff;
+
+constexpr int floorColour = 0x33;
+constexpr int ceilingColour = 0x11;
+
 constexpr int outlineColour = 0;
 #endif
 #else
@@ -28,9 +32,9 @@ constexpr int outlineColour = 0;
 #endif
 #endif
 
-constexpr int displayHeight = 40;
-constexpr int horizon = 20;
-constexpr int displayWidth = 80;
+constexpr int displayHeight = VIEWPORT_HEIGHT;
+constexpr int horizon = VIEWPORT_HEIGHT / 2;
+constexpr int displayWidth = VIEWPORT_WIDTH;
 
 #if USE_GRAPHICS_MODE
 void WriteWallScaler(ofstream& output)

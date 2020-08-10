@@ -1,6 +1,6 @@
 void DrawHand1(backbuffer_t p, unsigned char x, unsigned char y) {
   p += x;
-  p += 1920 + (y * 80) ;
+  p += 1120 + (y * 80) ;
   switch(y) {
    case 0:
     p[1208]=0;p[1209]=34;p[1210]=34;p[1211]=34;p[1212]=34;p[1213]=34;p[1214]=34;p[1215]=0;
@@ -40,7 +40,7 @@ void DrawHand1(backbuffer_t p, unsigned char x, unsigned char y) {
 }
 void DrawHand2(backbuffer_t p, unsigned char x, unsigned char y) {
   p += x;
-  p += 1920 + (y * 80) ;
+  p += 1120 + (y * 80) ;
   switch(y) {
    case 0:
     p[1207]=0;p[1208]=34;p[1209]=34;p[1210]=34;p[1211]=34;p[1212]=34;p[1213]=34;p[1214]=34;p[1215]=0;

@@ -24,6 +24,9 @@
 #define USE_GRAPHICS_MODE 1
 #define USE_COMPOSITE_COLOURS 1
 
+#define VIEWPORT_WIDTH 80
+#define VIEWPORT_HEIGHT 30
+
 #if _DOS
 #define DISPLAY_WIDTH 80
 #define DISPLAY_HEIGHT 50
@@ -64,6 +67,7 @@ typedef void (__far* drawRoutine_t)(backbuffer_t backBuffer, unsigned char x, un
 #endif
 
 #define CAMERA_SCALE 1
+#define VERTICAL_MULTIPLIER 2
 
 #if USE_LOW_PRECISION_RENDERING
 #define RENDER_PRECISION_SHIFT 3

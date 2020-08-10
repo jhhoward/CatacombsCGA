@@ -10,25 +10,14 @@ static uint8_t inputState = 0;
 unsigned long Profiler::timerValue[NumProfilerSectionTypes];
 
 #if USE_GRAPHICS_MODE
-#define WINDOW_WIDTH 80
-#define WINDOW_HEIGHT 40
 
-unsigned char windowBackBuffer[WINDOW_WIDTH * WINDOW_HEIGHT];
+unsigned char windowBackBuffer[VIEWPORT_WIDTH * VIEWPORT_HEIGHT];
 
 void BlitWindow(unsigned char* src, unsigned int dstSeg);
-#if 0
 #pragma aux BlitWindow = \
 	"mov ax, 0" \
 	"mov di, ax" \
-	"mov cx, 1600" 		/* Copy 3200 bytes */ \
-	"rep movsw" 		/* ES:DI <- DS:SI */ \
-	modify [ax di cx si] \
-	parm [si] [es];
-#endif
-#pragma aux BlitWindow = \
-	"mov ax, 0" \
-	"mov di, ax" \
-	"mov dx, 40"		/* 40 lines */ \
+	"mov dx, 30"		/* 30 lines */ \
 	"_blitLine:" \
 	"mov cx, 40" 		/* Copy 80 bytes */ \
 	"push si" \
@@ -40,6 +29,48 @@ void BlitWindow(unsigned char* src, unsigned int dstSeg);
 	"jnz _blitLine" \
 	modify [ax dx di cx si] \
 	parm [si] [es];
+
+void BlitWindowPlane1(unsigned char* src);
+#pragma aux BlitWindowPlane1 = \
+	"mov ax, 0xb850" 	/* ES:DI = 0xb8000 */ \
+	"mov es, ax" \
+	"mov ax, 0" \
+	"mov di, ax" \
+	"mov dx, 15"		/* 20 loops x3 lines */ \
+	"_blitLine:" \
+	"mov cx, 40" 		/* Copy 80 bytes */ \
+	"push si" \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	"pop si" \
+	"mov cx, 40" 		/* Copy 80 bytes */ \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	"mov cx, 40" 		/* Copy 80 bytes */ \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	"dec dx" \
+	"jnz _blitLine" \
+	modify [ax dx di cx si] \
+	parm [si];
+
+void BlitWindowPlane2(unsigned char* src);
+#pragma aux BlitWindowPlane2 = \
+	"mov ax, 0xba50" 	/* ES:DI = 0xba000 */ \
+	"mov es, ax" \
+	"mov ax, 0" \
+	"mov di, ax" \
+	"mov dx, 15"		/* 20 loops x3 lines */ \
+	"_blitLine:" \
+	"mov cx, 40" 		/* Copy 80 bytes */ \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	"mov cx, 40" 		/* Copy 80 bytes */ \
+	"push si" \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	"pop si" \
+	"mov cx, 40" 		/* Copy 80 bytes */ \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	"dec dx" \
+	"jnz _blitLine" \
+	modify [ax dx di cx si] \
+	parm [si];
 
 #endif
 
@@ -85,7 +116,7 @@ void Platform::PutPixel(uint8_t x, uint8_t y, uint8_t colour)
 
 	int offset = (((y << 6) + (y << 4) + x));
 
-	if (offset > (WINDOW_WIDTH * WINDOW_HEIGHT))
+	if (offset > (VIEWPORT_WIDTH * VIEWPORT_HEIGHT))
 		return;
 
 	backBuffer[offset] = colour;
@@ -348,6 +379,7 @@ int main()
 	int fpsCounter = 0;
 	int fps = 0;
 	bool interlace = false;
+	bool narrow = false;
 
 	//Fire();
 
@@ -419,6 +451,11 @@ int main()
 			interlace = !interlace;
 			while (DOSLib::normalKeys[0x17]);
 		}
+		if (DOSLib::normalKeys[0x31]) // N
+		{
+			narrow = !narrow;
+			while (DOSLib::normalKeys[0x31]);
+		}
 
 		if(interlace)
 		{
@@ -432,8 +469,16 @@ int main()
 		}
 		else
 		{
-			BlitWindow(windowBackBuffer, 0xb800);
-			BlitWindow(windowBackBuffer, 0xba00);
+			if (narrow)
+			{
+				BlitWindowPlane1(windowBackBuffer);
+				BlitWindowPlane2(windowBackBuffer);
+			}
+			else
+			{
+				BlitWindow(windowBackBuffer, 0xb800);
+				BlitWindow(windowBackBuffer, 0xba00);
+			}
 		}
 #endif
 
