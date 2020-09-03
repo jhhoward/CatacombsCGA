@@ -17,6 +17,7 @@ const char* wallScalerHeaderOutputPath = GENERATED_DIR "WallScaler.inc.h";
 const char* drawRoutinesHeaderOutputPath = GENERATED_DIR "DrawRoutines.inc.h";
 
 void WriteWallScaler(ofstream& output);
+unsigned char matchColour(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 
 #if USE_GRAPHICS_MODE
 constexpr int numPaletteEntries = 16;
@@ -53,6 +54,7 @@ void GeneratePalette()
 #else
 constexpr int numBasePaletteEntries = 4;
 
+// High intensity mode 4
 unsigned char basePalette[4 * 3] =
 {
 	0,	0,	0,
@@ -61,6 +63,33 @@ unsigned char basePalette[4 * 3] =
 	0xff,	0xff,	0xff
 };
 
+// LCD greyscale
+/*unsigned char basePalette[4 * 3] =
+{
+	0xff,	0xff,	0xff,
+	0xaa,	0xaa,	0xaa,
+	0x55,	0x55,	0x55,
+	0x00,	0x00,	0x0
+};*/
+
+// Low intensity mode 5
+/*unsigned char basePalette[4 * 3] =
+{
+	0,	0,	0,
+	0,	0xaa,	0xaa,
+	0xaa,	0,	0,
+	0xaa,	0xaa,	0xaa,
+};*/
+
+// High intensity mode 5
+/*unsigned char basePalette[4 * 3] =
+{
+	0,	0,	0,
+	0x55,	0xff,	0xff,
+	0xff,	0x55,	0x55,
+	0xff,	0xff,	0xff
+};*/
+
 /*unsigned char basePalette[4 * 3] =
 {
 	0xff,	0xff,	0xff,
@@ -68,6 +97,26 @@ unsigned char basePalette[4 * 3] =
 	0x55,	0x55,	0x55,
 	0x00,	0x00,	0x00,
 };*/
+
+unsigned char cgaPalette[numPaletteEntries * 3] =
+{
+	0,	0,	0,
+	0,	0,	0xaa,
+	0,	0xaa,	0,
+	0,	0xaa,	0xaa,
+	0xaa,	0,	0,
+	0xaa,	0,	0xaa,
+	0xaa,	0x55,	0,
+	0xaa,	0xaa,	0xaa,
+	0x55,	0x55,	0x55,
+	0x55,	0x55,	0xff,
+	0x55,	0xff,	0x55,
+	0x55,	0xff,	0xff,
+	0xff,	0x55,	0x55,
+	0xff,	0x55,	0xff,
+	0xff,	0xff,	0x55,
+	0xff,	0xff,	0xff
+};
 
 unsigned char palette[16 * 4];
 
@@ -96,7 +145,22 @@ void GeneratePalette()
 		pixels.push_back(palette[n * 3 + 2]);
 		pixels.push_back(255);
 	}
-	lodepng::encode("pal.png", pixels, 4, 4);
+	for (int n = 0; n < 16; n++)
+	{
+		pixels.push_back(cgaPalette[n * 3 + 0]);
+		pixels.push_back(cgaPalette[n * 3 + 1]);
+		pixels.push_back(cgaPalette[n * 3 + 2]);
+		pixels.push_back(255);
+	}
+	for (int n = 0; n < 16; n++)
+	{
+		int matching = matchColour(cgaPalette[n * 3], cgaPalette[n * 3 + 1], cgaPalette[n * 3 + 2], 255);
+		pixels.push_back(palette[matching * 3 + 0]);
+		pixels.push_back(palette[matching * 3 + 1]);
+		pixels.push_back(palette[matching * 3 + 2]);
+		pixels.push_back(255);
+	}
+	lodepng::encode("pal.png", pixels, 16, 3);
 }
 #endif
 
@@ -122,6 +186,32 @@ unsigned char palette[numPaletteEntries * 3] =
 	0xff,	0xff,	0xff
 };
 #endif
+
+unsigned char matchColourGreyscale(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
+{
+	if (a == 0)
+	{
+		return 0xff;
+	}
+
+	unsigned char closest = 0;
+	float closestDistance = -1;
+	float intensity = (r / 255.0f) * 0.2126f + (g / 255.0f) * 0.7152 + (b / 255.0f) * 0.0722;
+
+	for (int n = 0; n < numPaletteEntries; n++)
+	{
+		float palIntensity = (palette[n * 3] / 255.0f) * 0.2126f + (palette[n * 3 + 1] / 255.0f) * 0.7152f + (palette[n * 3 + 2] / 255.0f) * 0.0722f;
+		float distance = palIntensity - intensity;
+		distance = distance < 0 ? -distance : distance;
+		if (n == 0 || distance < closestDistance)
+		{
+			closestDistance = distance;
+			closest = (unsigned char)(n);
+		}
+	}
+
+	return closest;
+}
 
 unsigned char matchColour(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 {
@@ -604,7 +694,7 @@ void GenerateWeaponRoutine(ofstream& output, const char* routineName, const char
 
 	output << "void Draw" << routineName << "(backbuffer_t p, unsigned char x, unsigned char y) {" << endl;
 	output << "  p += x;" << endl;
-	output << "  p += " << (80 * (VIEWPORT_HEIGHT - height)) << " + (y * 80) ;" << endl;
+	output << "  p += " << (VIEWPORT_WIDTH * (VIEWPORT_HEIGHT - height)) << " + (y * VIEWPORT_WIDTH) ;" << endl;
 	output << "  switch(y) {" << endl;
 
 	int yCase = 0;
@@ -616,7 +706,7 @@ void GenerateWeaponRoutine(ofstream& output, const char* routineName, const char
 		output << "    ";
 		for (unsigned int x = 0; x < width; x++)
 		{
-			int index = ((y) * 80 + x);
+			int index = ((y) * VIEWPORT_WIDTH + x);
 			int col = palettedImage[y * width + x];
 
 			if (col != 0xff)
@@ -798,7 +888,7 @@ void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* r
 		{
 			output << "   case " << x << ": ";
 
-			int outAddress = (VIEWPORT_HEIGHT / 2 - s) * 80;
+			int outAddress = (VIEWPORT_HEIGHT / 2 - s) * VIEWPORT_WIDTH;
 
 			for (int y = 0; y < s * 2; y++)
 			{
@@ -810,9 +900,9 @@ void GenerateSpriteRoutine(ofstream& output, ofstream& typeOutput, const char* r
 					output << "p[" << outAddress << "]=" << outputCol << ";";
 				}
 
-				outAddress += 80;
+				outAddress += VIEWPORT_WIDTH;
 
-				if (outAddress >= VIEWPORT_HEIGHT * 80)
+				if (outAddress >= VIEWPORT_HEIGHT * VIEWPORT_WIDTH)
 				{
 					break;
 				}

@@ -14,6 +14,7 @@ unsigned long Profiler::timerValue[NumProfilerSectionTypes];
 unsigned char windowBackBuffer[VIEWPORT_WIDTH * VIEWPORT_HEIGHT];
 
 void BlitWindow(unsigned char* src, unsigned int dstSeg);
+#if 0
 #pragma aux BlitWindow = \
 	"mov ax, 0" \
 	"mov di, ax" \
@@ -29,6 +30,26 @@ void BlitWindow(unsigned char* src, unsigned int dstSeg);
 	"jnz _blitLine" \
 	modify [ax dx di cx si] \
 	parm [si] [es];
+#else
+#pragma aux BlitWindow = \
+	"mov ax, 322" \
+	"mov di, ax" \
+	"mov dx, 30"		/* 30 lines */ \
+	"_blitLine:" \
+	"mov cx, 38" 		/* Copy 76 bytes */ \
+	"push si" \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	"add di, 4" \
+	"pop si" \
+	"mov cx, 38" 		/* Copy 76 bytes */ \
+	"rep movsw" 		/* ES:DI <- DS:SI */ \
+	"add di, 4" \
+	"dec dx" \
+	"jnz _blitLine" \
+	modify [ax dx di cx si] \
+	parm [si] [es];
+#endif
+
 
 void BlitWindowPlane1(unsigned char* src);
 #pragma aux BlitWindowPlane1 = \
@@ -114,7 +135,8 @@ void Platform::PutPixel(uint8_t x, uint8_t y, uint8_t colour)
 #if USE_GRAPHICS_MODE
 	backbuffer_t backBuffer = windowBackBuffer;
 
-	int offset = (((y << 6) + (y << 4) + x));
+	//int offset = (((y << 6) + (y << 4) + x));
+	int offset = y * VIEWPORT_WIDTH + x;
 
 	if (offset > (VIEWPORT_WIDTH * VIEWPORT_HEIGHT))
 		return;
